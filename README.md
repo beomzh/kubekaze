@@ -25,6 +25,7 @@ English | [한국어](README.ko.md)
 | `kubekaze events -A --type Warning` | Events sorted by time across namespaces; `--summary` per namespace | available |
 | `kubekaze sh <pod\|deploy/x>` | Finds a working shell (bash/sh/ash), or an ephemeral debug container | available |
 | `kubekaze logs <pod\|deploy/x>` | Multi-pod tail; previous run of restarted containers included | available |
+| `kubekaze top [ns]` | Usage snapshot from metrics-server: nodes vs allocatable (>80% red), top pods by `--sort cpu\|memory` with percent of limit, per-namespace totals with `top ns`; `-w` live view | available |
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | Bulk delete with preview and confirmation | available |
 | `kubekaze ctx [name\|-]` | Switch context; groups `oc` per-namespace contexts; warns right away about an expired login | available |
 | `kubekaze ns [name\|-]` | Switch namespace (projects on OpenShift); the picker shows pods, unhealthy pods and recent warnings per namespace, `--list` / `-o json` for scripts | available |
@@ -44,6 +45,8 @@ kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
 kubekaze events -A --summary
+kubekaze top -A --sort memory --limit 20   # needs metrics-server
+kubekaze top ns -w --interval 2s
 kubekaze rm pods -A --status Evicted --dry-run
 ```
 

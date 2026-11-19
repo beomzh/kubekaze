@@ -39,6 +39,7 @@
   3. 셸이 없는 이미지(distroless/scratch)면 설정 가능한 고정(pinned) 이미지로 **임시 디버그 컨테이너**(`kubectl debug` 방식)를 제안합니다.
   4. OpenShift 클러스터에서는 `oc` 없이도 `oc rsh`와 같은 기본 동작을 합니다.
 - `logs`: stern 방식의 멀티 파드 tail에 더해, 컨테이너가 재시작했다면 이전 컨테이너 로그(`-p`)를 자동 포함하고 에러를 강조합니다.
+- `top`: metrics API(metrics-server) 기반의 읽기 전용 사용량 스냅샷. 노드 사용률(allocatable 대비), CPU·메모리 상위 파드와 limit 대비 사용 비율(스로틀링·OOM 직전 파드가 눈에 띔), 네임스페이스별 합계(`top ns`), `-w` 실시간 보기. metrics-server가 없으면 에러를 쏟는 대신 무엇을 설치해야 하는지 한 줄로 알려 줍니다.
 - `rm`: `get | grep | awk | xargs kubectl delete`를 엮지 않고 파드(및 다른 리소스)를 한 번에 삭제합니다.
   - 이름 패턴, 레이블, 상태(`--status CrashLoopBackOff,Error,Evicted,Completed`), 경과 시간(`--older-than 2h`), 노드로 선택하거나 목록에서 대화형으로 고릅니다.
   - **항상 미리보기가 먼저**(삭제될 대상을 정확히 보여주는 dry run)이며 확인 후에만 삭제합니다. 많은 개수이거나 운영(prod) 컨텍스트이면 개수나 이름을 직접 입력해야 합니다. `--yes`는 스크립트용이며 안전 상한은 그대로 적용됩니다.
@@ -70,7 +71,7 @@
 
 ## MVP 범위
 
-`status`, `why`, `events`, `sh`, `logs`, `rm`, `ctx`, `ns`. 나머지(`changes`, fan-out, 규칙 팩, AI)는 이후 마이너 릴리즈에서 추가합니다.
+`status`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, `ns`. 나머지(`changes`, fan-out, 규칙 팩, AI)는 이후 마이너 릴리즈에서 추가합니다.
 
 ## 지원 플랫폼
 

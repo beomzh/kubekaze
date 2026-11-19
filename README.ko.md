@@ -25,6 +25,7 @@
 | `kubekaze events -A --type Warning` | 전체 네임스페이스 이벤트를 시간순 정렬, `--summary`는 네임스페이스별 요약 | 사용 가능 |
 | `kubekaze sh <pod\|deploy/x>` | 동작하는 셸(bash/sh/ash)을 찾거나 임시 디버그 컨테이너 사용 | 사용 가능 |
 | `kubekaze logs <pod\|deploy/x>` | 멀티 파드 tail, 재시작한 컨테이너의 이전 로그 포함 | 사용 가능 |
+| `kubekaze top [ns]` | metrics-server 기반 사용량 스냅샷: 노드 사용률(80% 초과는 빨강), `--sort cpu\|memory` 상위 파드와 limit 대비 비율, `top ns`는 네임스페이스별 합계, `-w`는 실시간 갱신 | 사용 가능 |
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | 미리보기와 확인 후 일괄 삭제 | 사용 가능 |
 | `kubekaze ctx [name\|-]` | 컨텍스트 전환. `oc`가 만드는 네임스페이스별 컨텍스트를 묶어 보여주고, 만료된 로그인을 바로 경고 | 사용 가능 |
 | `kubekaze ns [name\|-]` | 네임스페이스 전환(OpenShift는 프로젝트). 선택기에 네임스페이스별 파드·비정상 파드·최근 경고 수를 표시하며, 스크립트용으로 `--list` / `-o json` | 사용 가능 |
@@ -44,6 +45,8 @@ kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
 kubekaze events -A --summary
+kubekaze top -A --sort memory --limit 20   # metrics-server 필요
+kubekaze top ns -w --interval 2s
 kubekaze rm pods -A --status Evicted --dry-run
 ```
 
