@@ -1,13 +1,13 @@
 # kubekaze
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Status](https://img.shields.io/badge/status-concept-orange)
+![Status](https://img.shields.io/badge/status-early%20development-orange)
 
 English | [한국어](README.ko.md)
 
 **A terminal-first Kubernetes companion that tells you what is wrong and why, in one command.**
 
-> **Status: concept stage.** There is no installable release yet. This README describes the intended behavior; see [docs/CONCEPT.md](docs/CONCEPT.md).
+> **Status: early development.** The core commands below work and were tried on a kind cluster (bulk delete is so far covered by unit tests only), but there is no tagged release yet. Build from source (see [Install](#install)). Design background: [docs/CONCEPT.md](docs/CONCEPT.md).
 
 ## Why
 
@@ -16,19 +16,49 @@ English | [한국어](README.ko.md)
 - krew plugins are small and single-purpose; you still stitch the answers together.
 - Daily friction: Does this image have `bash` or `sh`? Was it `logs -p`? Which context am I on?
 
-## Planned commands
+## Commands
+
+| Command | What it does | State |
+|---------|--------------|-------|
+| `kubekaze status` | Only what is unhealthy (pods, workloads, nodes, jobs, PVCs). Exit code 3 when problems exist | available |
+| `kubekaze why <pod\|deploy/x>` | Timeline, evidence and ranked suspected causes | available |
+| `kubekaze events -A --type Warning` | Events sorted by time across namespaces; `--summary` per namespace | available |
+| `kubekaze sh <pod\|deploy/x>` | Finds a working shell (bash/sh/ash), or an ephemeral debug container | available |
+| `kubekaze logs <pod\|deploy/x>` | Multi-pod tail; previous run of restarted containers included | available |
+| `kubekaze rm pods --status CrashLoopBackOff,Evicted` | Bulk delete with preview and confirmation | available |
+| `kubekaze ctx [name\|-]` | Switch context | available |
+| `kubekaze ns [name\|-]` | Switch namespace; projects on OpenShift | available |
+| `kubekaze changes --since 1h` | What changed just before it broke | planned |
+| `--all-contexts` / `--context 'prod-*'` | Run across several clusters | planned |
+| AI summary (opt-in, local models supported) | Plain-language explanation | planned |
+
+Examples:
 
 ```text
-kubekaze status                 # only what is unhealthy, in this namespace/cluster
-kubekaze why pod/api-7d9f       # correlated timeline + ranked suspected causes
-kubekaze events -A --type Warning   # events sorted by time across namespaces; --summary per namespace
-kubekaze sh deploy/api          # finds a working shell (bash/sh/ash), or a debug container
-kubekaze logs deploy/api        # multi-pod tail, crash-aware (previous logs included)
-kubekaze rm pods --status CrashLoopBackOff,Evicted   # bulk delete with preview + confirmation
-kubekaze ctx [name]             # switch context (fuzzy list, or direct)
-kubekaze ns [name|-]            # switch namespace; projects on OpenShift; "-" = previous
-kubekaze changes --since 1h     # what changed just before it broke (later release)
+kubekaze status -A
+kubekaze why deploy/api
+kubekaze sh deploy/api -c sidecar
+kubekaze sh api-7d9f -- ls -l /app
+kubekaze logs deploy/api -f --since 10m
+kubekaze events -A --summary
+kubekaze rm pods -A --status Evicted --dry-run
 ```
+
+Exit codes: `0` ok, `1` error, `3` problems found (`status`, `why`). For `sh`, the remote command's exit code is passed through.
+
+Global flags: `--kubeconfig`, `--context`, `-n/--namespace`, `-A/--all-namespaces`, `-o text|json`.
+
+## Install
+
+No release has been published yet. Build from source (Go 1.26 or newer):
+
+```bash
+git clone https://github.com/beomzh/kubekaze.git
+cd kubekaze
+make build        # produces ./bin/kubekaze
+```
+
+Release binaries for Linux, macOS and Windows (amd64 and arm64) will be published on the Releases page; see [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Works with
 
