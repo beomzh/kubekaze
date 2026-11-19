@@ -6,6 +6,12 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
+
+### Added
+- `ns`: the interactive picker shows, next to each namespace (or OpenShift project), the pod count, the number of unhealthy pods (same rules as `status`) and the number of Warning events from the last hour. Pods and events are listed once cluster-wide, not per namespace; filtering still matches the name. If you may not list them cluster-wide, a note says so and the plain name list is shown (`--no-summary` skips the calls).
+- `ns --list` (`-l`) and `ns -o json`: the same summary non-interactively, for pipes and scripts. Plain `ns` piped still prints just the names.
+
 ## [0.1.3] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
 
 ### Fixed

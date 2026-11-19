@@ -45,3 +45,20 @@ func PickMany(items []string, prompt string) ([]string, error) {
 	}
 	return out, nil
 }
+
+// PickLabeled is like Pick but shows labels[i] for items[i]. Filtering matches
+// the label, which should start with the item name.
+func PickLabeled(items, labels []string, prompt string) (string, error) {
+	if len(items) == 0 || len(labels) != len(items) {
+		return Pick(items, prompt)
+	}
+	idx, err := fuzzyfinder.Find(items, func(i int) string { return labels[i] },
+		fuzzyfinder.WithPromptString(prompt+"> "))
+	if err != nil {
+		if errors.Is(err, fuzzyfinder.ErrAbort) {
+			return "", ErrCancelled
+		}
+		return "", err
+	}
+	return items[idx], nil
+}

@@ -27,7 +27,7 @@ English | [한국어](README.ko.md)
 | `kubekaze logs <pod\|deploy/x>` | Multi-pod tail; previous run of restarted containers included | available |
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | Bulk delete with preview and confirmation | available |
 | `kubekaze ctx [name\|-]` | Switch context; groups `oc` per-namespace contexts; warns right away about an expired login | available |
-| `kubekaze ns [name\|-]` | Switch namespace; projects on OpenShift | available |
+| `kubekaze ns [name\|-]` | Switch namespace (projects on OpenShift); the picker shows pods, unhealthy pods and recent warnings per namespace, `--list` / `-o json` for scripts | available |
 | `kubekaze update` | Update the binary: online, from a mirror (`--url`) or from a downloaded archive (`--from`) | available |
 | `kubekaze changes --since 1h` | What changed just before it broke | planned |
 | `--all-contexts` / `--context 'prod-*'` | Run across several clusters | planned |
