@@ -8,8 +8,8 @@ coverage.*
 # Local config and secrets
 .env
 .env.*
-*.kubeconfig
-kubeconfig*
+/*.kubeconfig
+/kubeconfig*
 *.pem
 *.key
 
