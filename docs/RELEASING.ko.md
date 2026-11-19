@@ -14,7 +14,7 @@
 
 1. CI 통과 상태로 `main`에 병합합니다.
 2. `CHANGELOG.md`를 갱신합니다([Keep a Changelog](https://keepachangelog.com/ko/) 형식).
-3. 주석이 있는 서명 태그를 푸시합니다: `git tag -s v0.2.0 -m "v0.2.0" && git push origin v0.2.0`.
+3. 주석 태그를 푸시합니다(서명 키가 있으면 `-s` 사용): `git tag -a v0.2.0 -m "v0.2.0" && git push origin v0.2.0`. 릴리즈 산출물은 워크플로가 직접 서명합니다(cosign, keyless).
 4. GitHub Actions가 GoReleaser를 실행해 linux/darwin/windows × amd64/arm64를 빌드하고(Linux/macOS는 `.tar.gz`, Windows는 `.zip`), 아카이브·체크섬·SBOM·cosign 서명·출처 증명·GitHub Release를 만듭니다.
 
 ## 배포 채널

@@ -7,7 +7,7 @@
 
 **무엇이 문제고 왜 그런지를 명령 한 번으로 알려주는, 터미널 중심의 쿠버네티스 동반 도구.**
 
-> **상태: 초기 개발 중.** 아래 핵심 명령은 동작하며 kind 클러스터에서 확인했지만(일괄 삭제는 아직 단위 테스트로만 검증), 아직 태그된 릴리즈는 없습니다. 소스에서 빌드해 주세요([설치](#설치)). 설계 배경은 [docs/CONCEPT.ko.md](docs/CONCEPT.ko.md)를 참고하세요.
+> **상태: 초기 개발 중(v0.1).** 아래 핵심 명령은 동작하며 kind 클러스터에서 확인했습니다(일괄 삭제는 아직 단위 테스트로만 검증). 0.x 동안에는 미완성인 부분과 변경이 있을 수 있습니다. [설치](#설치)를 참고하세요. 설계 배경은 [docs/CONCEPT.ko.md](docs/CONCEPT.ko.md)를 참고하세요.
 
 ## 왜 만드나
 
@@ -50,7 +50,9 @@ kubekaze rm pods -A --status Evicted --dry-run
 
 ## 설치
 
-아직 게시된 릴리즈가 없습니다. 소스에서 빌드해 주세요(Go 1.26 이상):
+[Releases 페이지](https://github.com/beomzh/kubekaze/releases)에서 OS와 CPU(Linux, macOS, Windows, amd64 또는 arm64)에 맞는 압축 파일을 받아 `checksums.txt`로 확인한 뒤, `kubekaze` 바이너리를 `PATH`에 두세요.
+
+또는 소스에서 빌드합니다(Go 1.26 이상):
 
 ```bash
 git clone https://github.com/beomzh/kubekaze.git
@@ -58,7 +60,7 @@ cd kubekaze
 make build        # ./bin/kubekaze 생성
 ```
 
-Linux, macOS, Windows(amd64, arm64) 릴리즈 바이너리는 Releases 페이지에 게시될 예정입니다. [docs/RELEASING.ko.md](docs/RELEASING.ko.md)를 참고하세요.
+릴리즈 절차와 검증은 [docs/RELEASING.ko.md](docs/RELEASING.ko.md)를 참고하세요. Homebrew와 krew 패키지는 계획 중입니다.
 
 ## 지원 환경
 

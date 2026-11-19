@@ -7,7 +7,7 @@ English | [한국어](README.ko.md)
 
 **A terminal-first Kubernetes companion that tells you what is wrong and why, in one command.**
 
-> **Status: early development.** The core commands below work and were tried on a kind cluster (bulk delete is so far covered by unit tests only), but there is no tagged release yet. Build from source (see [Install](#install)). Design background: [docs/CONCEPT.md](docs/CONCEPT.md).
+> **Status: early development (v0.1).** The core commands below work and were tried on a kind cluster (bulk delete is so far covered by unit tests only). Expect rough edges and changes between 0.x releases. See [Install](#install). Design background: [docs/CONCEPT.md](docs/CONCEPT.md).
 
 ## Why
 
@@ -50,7 +50,9 @@ Global flags: `--kubeconfig`, `--context`, `-n/--namespace`, `-A/--all-namespace
 
 ## Install
 
-No release has been published yet. Build from source (Go 1.26 or newer):
+Download the archive for your OS and CPU (Linux, macOS, Windows; amd64 or arm64) from the [Releases page](https://github.com/beomzh/kubekaze/releases), check it against `checksums.txt`, and put the `kubekaze` binary on your `PATH`.
+
+Or build from source (Go 1.26 or newer):
 
 ```bash
 git clone https://github.com/beomzh/kubekaze.git
@@ -58,7 +60,7 @@ cd kubekaze
 make build        # produces ./bin/kubekaze
 ```
 
-Release binaries for Linux, macOS and Windows (amd64 and arm64) will be published on the Releases page; see [docs/RELEASING.md](docs/RELEASING.md).
+Release process and verification: [docs/RELEASING.md](docs/RELEASING.md). Homebrew and krew packages are planned.
 
 ## Works with
 
