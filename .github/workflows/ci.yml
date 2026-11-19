@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
+          check-latest: true
       - name: Vet
         run: go vet ./...
       - name: Test
@@ -46,6 +47,7 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
+          check-latest: true
       - name: Build
         env:
           CGO_ENABLED: "0"
@@ -62,5 +64,6 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
+          check-latest: true
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
