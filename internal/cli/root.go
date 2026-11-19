@@ -15,6 +15,7 @@ import (
 	"github.com/beomzh/kubekaze/internal/kube"
 	"github.com/beomzh/kubekaze/internal/term"
 	"github.com/beomzh/kubekaze/internal/ui"
+	"github.com/beomzh/kubekaze/internal/update"
 	"github.com/beomzh/kubekaze/internal/version"
 )
 
@@ -29,6 +30,10 @@ type app struct {
 	output      string
 	interactive bool // stdin and stdout are terminals
 	parsed      bool // arguments and flags were accepted
+
+	// hooks for tests; nil means the real thing
+	exe    func() (string, error)
+	sanity func(path string, want update.Version) error
 }
 
 // Execute runs the CLI and returns the process exit code.
@@ -86,7 +91,7 @@ func (a *app) newRoot() *cobra.Command {
 	f.StringVarP(&a.output, "output", "o", "text", "output format: text|json")
 	f.BoolVarP(&a.opts.AllNamespaces, "all-namespaces", "A", false, "all namespaces")
 
-	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd(), a.newStatusCmd(), a.newWhyCmd(), a.newLogsCmd(), a.newVersionCmd())
+	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd(), a.newStatusCmd(), a.newWhyCmd(), a.newLogsCmd(), a.newVersionCmd(), a.newUpdateCmd())
 	root.AddCommand(a.newCompletionCmd(root))
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.SetFlagErrorFunc(a.flagError)

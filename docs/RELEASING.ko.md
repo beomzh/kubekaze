@@ -27,6 +27,18 @@
 | 컨테이너 이미지 | distroless, nonroot, GHCR 게시, 서명 |
 | `go install` | 개발자용 지원 |
 
+## `kubekaze update`용 사내 미러
+
+GitHub에 접근할 수 없는 망에서는 https 웹 서버, Nexus, Artifactory에 릴리즈 파일을 복사해 둘 수 있습니다. 각 릴리즈의 파일을 그대로 올립니다.
+
+```text
+<mirror>/latest                                      최신 태그 한 줄, 예: v0.1.1
+<mirror>/v0.1.1/checksums.txt
+<mirror>/v0.1.1/kubekaze_0.1.1_linux_amd64.tar.gz    (사용하는 다른 플랫폼도 같은 방식)
+```
+
+사용자는 `kubekaze update --url https://mirror.example.com/kubekaze`(또는 `KUBEKAZE_UPDATE_URL` 설정)로 실행합니다. `latest` 파일이 없으면 `--version v0.1.1`처럼 버전을 지정합니다. https만 허용합니다(localhost만 http 허용). 미러에 복사하기 전에 `checksums.txt`의 cosign 서명을 확인하세요([SECURITY.ko.md](../SECURITY.ko.md)).
+
 ## GitHub 저장소 설정 (생성 시점)
 
 - **Description:** `Terminal-first Kubernetes companion: find out what is wrong and why in one command. Smart exec, crash-aware logs, multi-cluster triage.`
