@@ -293,6 +293,9 @@ func (a *app) failingLogs(ctx context.Context, cs kubernetes.Interface, pod *cor
 			}
 			out = append(out, l)
 		}
+		if len(out) == 1 && logUnavailable(out[0]) {
+			return nil
+		}
 		return out
 	}
 	if pick.RestartCount > 0 {
@@ -364,4 +367,10 @@ func (a *app) printWhy(r *whyReport) {
 			fmt.Fprintf(a.out, "     %s %s\n", a.pal.Cyan("->"), term.SafeText(c.Hint))
 		}
 	}
+}
+
+// logUnavailable recognises the text the kubelet returns as a "log" when the
+// container's log file is gone (rotated or garbage collected).
+func logUnavailable(l string) bool {
+	return strings.HasPrefix(l, "unable to retrieve container logs for ")
 }

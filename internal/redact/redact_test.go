@@ -7,14 +7,14 @@ import (
 
 func TestLineMasksSecrets(t *testing.T) {
 	secrets := map[string]string{
-		"DB_PASSWORD=hunter2 started":                          "hunter2",
-		`{"api_key": "abc123def456"}`:                          "abc123def456",
-		"token: s3cr3tvalue":                                   "s3cr3tvalue",
-		"Authorization: Bearer abcdef0123456789abcdef":         "abcdef0123456789abcdef",
-		"using AKIAIOSFODNN7EXAMPLE for s3":                    "AKIAIOSFODNN7EXAMPLE",
-		"postgres://admin:p4ssw0rd@db:5432/app":                "p4ssw0rd",
+		"DB_PASSWORD=hunter2 started":                           "hunter2",
+		`{"api_key": "abc123def456"}`:                           "abc123def456",
+		"token: s3cr3tvalue":                                    "s3cr3tvalue",
+		"Authorization: Bearer abcdef0123456789abcdef":          "abcdef0123456789abcdef",
+		"using AKIAIOSFODNN7EXAMPLE for s3":                     "AKIAIOSFODNN7EXAMPLE",
+		"postgres://admin:p4ssw0rd@db:5432/app":                 "p4ssw0rd",
 		"jwt eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0NTY.SflKxwRJSMeK": "eyJhbGciOiJIUzI1",
-		"ghp_abcdefghijklmnopqrstuvwxyz0123456789":             "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+		"ghp_abcdefghijklmnopqrstuvwxyz0123456789":              "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
 	}
 	for in, secret := range secrets {
 		got := Line(in)

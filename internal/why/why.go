@@ -144,7 +144,7 @@ func Diagnose(ev Evidence) []Cause {
 	if p.DeletionTimestamp != nil && ev.Now.Sub(p.DeletionTimestamp.Time) > time.Minute {
 		add(Cause{Title: "The pod is stuck terminating", Score: 85,
 			Evidence: []string{fmt.Sprintf("deletion requested %s ago", events.Age(ev.Now.Sub(p.DeletionTimestamp.Time))), fmt.Sprintf("finalizers: %v", p.Finalizers)},
-			Hint: "Look for finalizers, an unresponsive node, or a process that ignores SIGTERM."})
+			Hint:     "Look for finalizers, an unresponsive node, or a process that ignores SIGTERM."})
 	}
 
 	// Context: a recent rollout often explains the change.

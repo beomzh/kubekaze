@@ -165,7 +165,15 @@ func (a *app) runLogs(ctx context.Context, ref string, f logsFlags) error {
 			return
 		}
 		defer stream.Close()
-		streamLines(stream, func(l string) { emit(src, l) })
+		streamLines(stream, func(l string) {
+			if logUnavailable(l) {
+				mu.Lock()
+				fmt.Fprintf(a.err, "%s %s/%s: logs are no longer available\n", a.pal.Dim("note:"), term.SafeText(src.pod.Name), term.SafeText(src.container))
+				mu.Unlock()
+				return
+			}
+			emit(src, l)
+		})
 	}
 
 	// Previous runs first and sequentially, so the crash reason leads the output.
