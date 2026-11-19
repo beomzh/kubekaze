@@ -27,7 +27,7 @@
 | `kubekaze logs <pod\|deploy/x>` | 멀티 파드 tail, 재시작한 컨테이너의 이전 로그 포함 | 사용 가능 |
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | 미리보기와 확인 후 일괄 삭제 | 사용 가능 |
 | `kubekaze ctx [name\|-]` | 컨텍스트 전환. `oc`가 만드는 네임스페이스별 컨텍스트를 묶어 보여주고, 만료된 로그인을 바로 경고 | 사용 가능 |
-| `kubekaze ns [name\|-]` | 네임스페이스 전환, OpenShift는 프로젝트 | 사용 가능 |
+| `kubekaze ns [name\|-]` | 네임스페이스 전환(OpenShift는 프로젝트). 선택기에 네임스페이스별 파드·비정상 파드·최근 경고 수를 표시하며, 스크립트용으로 `--list` / `-o json` | 사용 가능 |
 | `kubekaze update` | 바이너리 업데이트: 온라인, 미러(`--url`), 받아 둔 아카이브(`--from`) | 사용 가능 |
 | `kubekaze changes --since 1h` | 깨지기 직전에 무엇이 바뀌었나 | 계획 |
 | `--all-contexts` / `--context 'prod-*'` | 여러 클러스터에 동시에 실행 | 계획 |

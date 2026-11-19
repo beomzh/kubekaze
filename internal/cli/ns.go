@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,7 +15,7 @@ import (
 )
 
 func (a *app) newNsCmd() *cobra.Command {
-	var current bool
+	var current, list, noSummary bool
 	cmd := &cobra.Command{
 		Use:     "ns [name|-]",
 		Aliases: []string{"project", "projects"},
@@ -25,7 +26,13 @@ On OpenShift this lists and switches projects.
   kubekaze ns             pick interactively (or list when not a terminal)
   kubekaze ns payments    switch to a namespace
   kubekaze ns -           switch to the previous namespace
-  kubekaze ns -c          print the current namespace`,
+  kubekaze ns -c          print the current namespace
+  kubekaze ns --list      list with pod count, unhealthy pods and recent Warning events
+  kubekaze ns --list -o json   the same as JSON, for scripts
+
+The picker shows the same summary next to each name (filtering still matches
+the name). It reads pods and events cluster-wide once; when you are not allowed
+to, it says so and shows plain names. --no-summary skips those calls.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			m := kubeconfig.New(a.opts.Kubeconfig, kubeconfig.DefaultStatePath())
@@ -48,17 +55,28 @@ On OpenShift this lists and switches projects.
 				if err != nil {
 					return err
 				}
-				if !(term.IsTerminal(a.in) && term.IsTerminal(a.out)) {
-					for _, n := range names {
-						mark := "  "
-						if n == cur {
-							mark = "* "
-						}
-						fmt.Fprintln(a.out, mark+term.SafeText(n))
+				interactive := term.IsTerminal(a.in) && term.IsTerminal(a.out) && !list && a.output != "json"
+				var sums nsSummaries
+				if (list || a.output == "json" || interactive) && !noSummary {
+					cs, cerr := a.clientset()
+					if cerr != nil {
+						return cerr
 					}
-					return nil
+					sums = summarizeNamespaces(cmd.Context(), cs, names, cur, time.Now())
+				} else {
+					sums = plainSummaries(names, cur)
 				}
-				picked, err := ui.Pick(names, noun)
+				if !interactive {
+					return a.printNsList(sums, noun)
+				}
+				for _, n := range sums.Notes {
+					fmt.Fprintln(a.err, a.pal.Yellow("note:"), n)
+				}
+				labels := names
+				if sums.known() {
+					labels = sums.pickLabels()
+				}
+				picked, err := ui.PickLabeled(names, labels, noun)
 				if err != nil {
 					return err
 				}
@@ -78,6 +96,8 @@ On OpenShift this lists and switches projects.
 		},
 	}
 	cmd.Flags().BoolVarP(&current, "current", "c", false, "print the current namespace")
+	cmd.Flags().BoolVarP(&list, "list", "l", false, "list non-interactively with pods, unhealthy pods and recent Warning events")
+	cmd.Flags().BoolVar(&noSummary, "no-summary", false, "do not read pods and events (plain names only)")
 	return cmd
 }
 

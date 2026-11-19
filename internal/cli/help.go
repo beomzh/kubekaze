@@ -280,6 +280,13 @@ switches projects (what "oc projects" and "oc project" do).
   kubekaze ns NAME       switch (the name can be tab-completed)
   kubekaze ns -          switch back to the previous namespace
   kubekaze ns -c         print the current namespace
+  kubekaze ns --list     list with pods, unhealthy pods and recent Warning events
+                         (-o json for scripts; plain "ns" piped prints names only)
+
+The picker shows the same summary next to each name: pod count, unhealthy pods
+(same rules as "status") and Warning events from the last hour. Filtering
+matches the name. Pods and events are read once cluster-wide; if you are not
+allowed to, a note says so and the plain list is shown. --no-summary skips them.
 
 Only the namespace field of the current context is changed in your kubeconfig,
 and the previous value is remembered per context for "ns -". If the namespace
@@ -297,6 +304,10 @@ changes your kubeconfig.`,
 
   # where am I?
   kubekaze ns -c
+
+  # what is going on in each namespace? (also for pipes and scripts)
+  kubekaze ns --list
+  kubekaze ns -o json
 
   # one command in another namespace, without switching
   kubekaze logs deploy/api -n payments`},
