@@ -9,6 +9,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ## [0.1.2-1] - 2026-11-19 (not released, no tag; will ship in the next release, 0.1.3)
 
 ### Fixed
+- `completion --alias` (bash): tab completion did nothing for `kk` unless `kk` was also a defined shell alias, because the script ran `kk __complete` and bash then fell back to file names. It now asks `kubekaze` itself.
 - `why node` / `status`: a Ready node was reported as silent when its heartbeat was a few minutes old. The kubelet only rewrites the node status about every 5 minutes (liveness is a Lease), so the limit is now 10 minutes.
 - `why node`: warnings older than 2 hours (OpenShift keeps events for days) are no longer treated as causes, and an `ImageGCFailed` "container not found" message is recognised as harmless noise instead of a disk problem.
 
