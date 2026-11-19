@@ -25,12 +25,13 @@ type app struct {
 	err  io.Writer
 	pal  term.Palette
 
-	output string
+	output      string
+	interactive bool // stdin and stdout are terminals
 }
 
 // Execute runs the CLI and returns the process exit code.
 func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
-	a := &app{in: in, out: out, err: errOut, pal: term.NewPalette(out)}
+	a := &app{in: in, out: out, err: errOut, pal: term.NewPalette(out), interactive: term.IsTerminal(in) && term.IsTerminal(out)}
 	root := a.newRoot()
 	root.SetArgs(args)
 	root.SetOut(out)
@@ -42,6 +43,10 @@ func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
 	if err := root.ExecuteContext(ctx); err != nil {
 		if errors.Is(err, ui.ErrCancelled) {
 			return 130
+		}
+		var ec exitCodeError
+		if errors.As(err, &ec) {
+			return ec.code
 		}
 		fmt.Fprintln(errOut, a.pal.Red("error:"), term.SafeText(err.Error()))
 		return 1
@@ -71,6 +76,6 @@ func (a *app) newRoot() *cobra.Command {
 	f.StringVarP(&a.output, "output", "o", "text", "output format: text|json")
 	f.BoolVarP(&a.opts.AllNamespaces, "all-namespaces", "A", false, "all namespaces")
 
-	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd())
+	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd())
 	return root
 }
