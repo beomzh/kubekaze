@@ -73,3 +73,10 @@ func (p Palette) Green(s string) string  { return p.wrap("32", s) }
 func (p Palette) Cyan(s string) string   { return p.wrap("36", s) }
 func (p Palette) Bold(s string) string   { return p.wrap("1", s) }
 func (p Palette) Dim(s string) string    { return p.wrap("2", s) }
+
+// Pick returns s in the i-th color of a rotating set, so that lines from
+// different pods are easy to tell apart.
+func (p Palette) Pick(i int, s string) string {
+	codes := []string{"36", "33", "32", "35", "34", "96", "93", "92"}
+	return p.wrap(codes[((i%len(codes))+len(codes))%len(codes)], s)
+}

@@ -75,6 +75,11 @@ func ResolvePod(ctx context.Context, cs kubernetes.Interface, ns, ref, selector 
 	return pickPod(list.Items, ns, selector, choose)
 }
 
+// Selector returns the label selector of a workload.
+func Selector(ctx context.Context, cs kubernetes.Interface, ns, kind, name string) (string, error) {
+	return workloadSelector(ctx, cs, ns, kind, name)
+}
+
 func workloadSelector(ctx context.Context, cs kubernetes.Interface, ns, kind, name string) (string, error) {
 	var ls *metav1.LabelSelector
 	switch kind {
