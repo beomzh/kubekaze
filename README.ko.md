@@ -38,6 +38,7 @@
 ```text
 kubekaze status -A
 kubekaze why deploy/api
+kubekaze why node            # 모든 노드, 문제 있는 것만 표시
 kubekaze why node/worker-3
 kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app

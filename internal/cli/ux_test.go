@@ -224,7 +224,7 @@ func TestInstallAliasWritesFilesNamedAfterTheAlias(t *testing.T) {
 		t.Fatalf("extra = %v", res.extra)
 	}
 	b, _ := os.ReadFile(res.extra[0])
-	if !strings.Contains(string(b), res.path) || !strings.Contains(string(b), "kubekaze") {
+	if !strings.Contains(string(b), filepath.ToSlash(res.path)) || !strings.Contains(string(b), "kubekaze") {
 		t.Errorf("the alias file must load the real script: %q", b)
 	}
 	// the real script still carries the alias line for people who source it directly
@@ -261,5 +261,14 @@ func TestInstallAliasWritesFilesNamedAfterTheAlias(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(foreign); string(b) != "# my own thing\n" {
 		t.Error("the foreign file was modified")
+	}
+}
+
+func TestShQuote(t *testing.T) {
+	if got := shQuote("/home/u/.local/share/x"); got != "'/home/u/.local/share/x'" {
+		t.Error(got)
+	}
+	if got := shQuote("a'b"); got != `'a'\''b'` {
+		t.Error(got)
 	}
 }

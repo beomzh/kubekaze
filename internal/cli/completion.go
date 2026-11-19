@@ -276,7 +276,7 @@ func installCompletion(root *cobra.Command, shell string, d dirs, force bool, al
 		switch shell {
 		case "bash":
 			extra = filepath.Join(filepath.Dir(path), alias)
-			body = fmt.Sprintf("# kubekaze: completion for the alias %s (loads the real script)\n. %q\n", alias, path)
+			body = fmt.Sprintf("# kubekaze: completion for the alias %s (loads the real script)\n. %s\n", alias, shQuote(filepath.ToSlash(path)))
 		case "fish":
 			extra = filepath.Join(filepath.Dir(path), alias+".fish")
 			body = fmt.Sprintf("# kubekaze: completion for the alias %s\ncomplete -c %s -w kubekaze\n", alias, alias)
@@ -312,9 +312,9 @@ func writeOwnFile(path string, data []byte, force bool) error {
 const completeTimeout = 3 * time.Second
 
 func complCtx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
-	base := cmd.Context()
-	if base == nil {
-		base = context.Background()
+	base := context.Background()
+	if cmd != nil && cmd.Context() != nil {
+		base = cmd.Context()
 	}
 	return context.WithTimeout(base, completeTimeout)
 }
@@ -376,6 +376,8 @@ var workloadPrefixes = map[string]string{
 	"deploy": "deployment", "deployment": "deployment",
 	"sts": "statefulset", "statefulset": "statefulset",
 	"ds": "daemonset", "daemonset": "daemonset",
+	"job": "job", "jobs": "job",
+	"node": "node", "nodes": "node", "no": "node",
 }
 
 // completeTargets completes pod names and workload references (deploy/x).
@@ -383,13 +385,21 @@ func (a *app) completeTargets(cmd *cobra.Command, args []string, toComplete stri
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	return a.targetNames(cmd, toComplete, true)
+	return a.targetNames(cmd, toComplete, true, false)
 }
 
-func (a *app) targetNames(cmd *cobra.Command, toComplete string, workloads bool) ([]string, cobra.ShellCompDirective) {
+// completeWhyTargets is completeTargets plus nodes: why also explains nodes.
+func (a *app) completeWhyTargets(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return a.targetNames(cmd, toComplete, true, true)
+}
+
+func (a *app) targetNames(cmd *cobra.Command, toComplete string, workloads, nodes bool) ([]string, cobra.ShellCompDirective) {
 	ctx, cancel := complCtx(cmd)
 	defer cancel()
-	cs, err := a.opts.Clientset()
+	cs, err := a.clientset()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -421,6 +431,23 @@ func (a *app) targetNames(cmd *cobra.Command, toComplete string, workloads bool)
 					names = append(names, o.Name)
 				}
 			}
+		case "job":
+			l, err := cs.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
+			if err == nil {
+				for _, o := range l.Items {
+					names = append(names, o.Name)
+				}
+			}
+		case "node":
+			if !nodes {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			l, err := cs.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+			if err == nil {
+				for _, o := range l.Items {
+					names = append(names, o.Name)
+				}
+			}
 		default:
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
@@ -440,7 +467,10 @@ func (a *app) targetNames(cmd *cobra.Command, toComplete string, workloads bool)
 	}
 	dir := cobra.ShellCompDirectiveNoFileComp
 	if workloads {
-		out = append(out, "deploy/", "sts/", "ds/")
+		out = append(out, "deploy/", "sts/", "ds/", "job/")
+		if nodes {
+			out = append(out, "node/", "nodes")
+		}
 		dir |= cobra.ShellCompDirectiveNoSpace
 	}
 	sort.Strings(out)
@@ -451,7 +481,7 @@ func (a *app) completeRmArgs(cmd *cobra.Command, args []string, toComplete strin
 	if len(args) == 0 {
 		return filterPrefix([]string{"pods"}, toComplete), cobra.ShellCompDirectiveNoFileComp
 	}
-	return a.targetNames(cmd, toComplete, false)
+	return a.targetNames(cmd, toComplete, false, false)
 }
 
 func fixed(vals ...string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
@@ -479,7 +509,7 @@ func (a *app) registerCompletions(root *cobra.Command) {
 	set("ns", a.completeNamespaces)
 	set("sh", a.completeTargets)
 	set("logs", a.completeTargets)
-	set("why", a.completeTargets)
+	set("why", a.completeWhyTargets)
 	set("rm", a.completeRmArgs)
 
 	flag := func(cmd, name string, fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) {
@@ -520,4 +550,9 @@ func aliasLoadLine(shell string) string {
 func aliasExample(shell string) string {
 	return "  # without an alias\n  " + strings.Replace(aliasLoadLine(shell), " --alias kk", "", 1) +
 		"\n\n  # with: alias kk=kubekaze\n  " + aliasLoadLine(shell)
+}
+
+// shQuote single-quotes s for a POSIX shell.
+func shQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

@@ -38,6 +38,7 @@ Examples:
 ```text
 kubekaze status -A
 kubekaze why deploy/api
+kubekaze why node            # every node, only problems are shown
 kubekaze why node/worker-3
 kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
