@@ -66,6 +66,10 @@ For a node (node/<name>): conditions, heartbeat, taints, node events and the
 unhealthy pods running on it, with causes such as kubelet down, disk or memory
 pressure, CNI or runtime problems.
 
+For all nodes ("kubekaze why node", or "nodes"): every node is checked and only
+the ones with problems are printed, plus a one-line summary of the healthy ones.
+(A pod that is really called "node" is reached as pod/node.)
+
 Causes it knows: OOMKilled, crash with exit code, image pull failures (not
 found, unauthorized, network, rate limit), missing ConfigMap/Secret, init
 container failures, scheduling (insufficient resources, taints, affinity,
@@ -79,7 +83,10 @@ Exit codes: 0 no problem found, 3 problem found, 1 error.`,
   kubekaze why deploy/api
   kubekaze why sts/db
 
-  # a node that shows NotReady in "kubekaze status"
+  # all nodes: only the ones with problems are shown
+  kubekaze why node
+
+  # one node, for example one that shows NotReady in "kubekaze status"
   kubekaze why node/worker-3
 
   # another namespace; more log lines; machine readable
@@ -364,7 +371,7 @@ Works with any Kubernetes: kubeadm/VM, EKS, AKS, GKE, OpenShift, Rancher.
 
 Where to start:
   1. kubekaze status -A       what is unhealthy?
-  2. kubekaze why <name>      why? (pod, deploy/x or node/x)
+  2. kubekaze why <name>      why? (a pod, deploy/x, node/x, or just: node)
   3. kubekaze logs / sh       look inside, fix, then
   4. kubekaze rm pods ...     clean up
 

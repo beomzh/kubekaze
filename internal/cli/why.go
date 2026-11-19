@@ -83,6 +83,9 @@ func (a *app) runWhy(ctx context.Context, ref string, f whyFlags) error {
 	if err != nil {
 		return err
 	}
+	if isAllNodes(ref) {
+		return a.whyAllNodes(ctx, cs)
+	}
 	kind, name, err := target.ParseRef(ref)
 	if err != nil {
 		return err

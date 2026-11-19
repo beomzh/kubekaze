@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -61,15 +62,21 @@ func nodeStatus(n *corev1.Node, now time.Time) string {
 	return st
 }
 
-func (a *app) whyNode(ctx context.Context, cs kubernetes.Interface, name string) error {
-	n, err := cs.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("getting node %s: %w", name, err)
+// isAllNodes reports whether ref means "every node": a bare node, nodes or no.
+// A pod really called "node" can still be reached as pod/node.
+func isAllNodes(ref string) bool {
+	switch strings.ToLower(ref) {
+	case "node", "nodes", "no":
+		return true
 	}
-	now := time.Now()
+	return false
+}
+
+// nodeReportFor builds the report of one node from data that was already loaded.
+func nodeReportFor(n *corev1.Node, evs []events.Row, pods []corev1.Pod, now time.Time) *nodeReport {
 	r := &nodeReport{
 		Node: n.Name, Status: nodeStatus(n, now), Age: events.Age(now.Sub(n.CreationTimestamp.Time)),
-		Kubelet: n.Status.NodeInfo.KubeletVersion,
+		Kubelet: n.Status.NodeInfo.KubeletVersion, Pods: len(pods),
 	}
 	for _, c := range n.Status.Conditions {
 		nc := nodeCondition{Type: string(c.Type), Status: string(c.Status), Reason: c.Reason, Message: c.Message}
@@ -81,46 +88,145 @@ func (a *app) whyNode(ctx context.Context, cs kubernetes.Interface, name string)
 	for _, t := range n.Spec.Taints {
 		r.Taints = append(r.Taints, fmt.Sprintf("%s:%s", t.Key, t.Effect))
 	}
-
-	// Events: node events usually live in the "default" namespace, so list all.
-	evl, err := cs.CoreV1().Events(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
-		FieldSelector: "involvedObject.kind=Node,involvedObject.name=" + name,
-	})
-	if err == nil {
-		for _, e := range evl.Items {
-			r.Events = append(r.Events, events.FromCore(e))
+	r.Events = events.Collapse(evs)
+	events.Sort(r.Events, "time", false)
+	for i := range pods {
+		p := &pods[i]
+		st := podstatus.Of(p)
+		starting := (st == "Pending" || st == "ContainerCreating" || st == "PodInitializing") && now.Sub(p.CreationTimestamp.Time) < 2*time.Minute
+		if !podstatus.Healthy(p) && !starting {
+			r.BadPods = append(r.BadPods, fmt.Sprintf("%s/%s: %s", p.Namespace, p.Name, st))
 		}
-		r.Events = events.Collapse(r.Events)
-		events.Sort(r.Events, "time", false)
 	}
-
-	// Pods running on the node (cluster-wide list; skipped when not permitted).
-	if pl, err := cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{FieldSelector: "spec.nodeName=" + name}); err == nil {
-		r.Pods = len(pl.Items)
-		for i := range pl.Items {
-			p := &pl.Items[i]
-			st := podstatus.Of(p)
-			starting := (st == "Pending" || st == "ContainerCreating" || st == "PodInitializing") && now.Sub(p.CreationTimestamp.Time) < 2*time.Minute
-			if !podstatus.Healthy(p) && !starting {
-				r.BadPods = append(r.BadPods, fmt.Sprintf("%s/%s: %s", p.Namespace, p.Name, st))
-			}
-		}
-		sort.Strings(r.BadPods)
-	}
-
+	sort.Strings(r.BadPods)
 	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: r.BadPods, Now: now})
 	r.Healthy = len(r.Causes) == 0
+	return r
+}
 
+// loadNodeEvents returns node events grouped by node name. Node events usually
+// live in the "default" namespace, so every namespace is listed. name may be
+// empty for all nodes.
+func loadNodeEvents(ctx context.Context, cs kubernetes.Interface, name string) map[string][]events.Row {
+	sel := "involvedObject.kind=Node"
+	if name != "" {
+		sel += ",involvedObject.name=" + name
+	}
+	out := map[string][]events.Row{}
+	l, err := cs.CoreV1().Events(metav1.NamespaceAll).List(ctx, metav1.ListOptions{FieldSelector: sel})
+	if err != nil {
+		return out
+	}
+	for _, e := range l.Items {
+		out[e.InvolvedObject.Name] = append(out[e.InvolvedObject.Name], events.FromCore(e))
+	}
+	return out
+}
+
+func (a *app) emitNodeReports(reports []*nodeReport, single bool) error {
 	if a.output == "json" {
 		enc := json.NewEncoder(a.out)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(r); err != nil {
-			return err
+		if single {
+			return enc.Encode(reports[0])
 		}
-	} else {
+		return enc.Encode(reports)
+	}
+	bad, okNames := 0, []string{}
+	for _, r := range reports {
+		if single {
+			a.printNode(r) // a node you asked about by name is always shown in full
+			continue
+		}
+		if r.Healthy {
+			okNames = append(okNames, r.Node)
+			continue
+		}
+		if bad > 0 {
+			fmt.Fprintln(a.out)
+		}
+		bad++
 		a.printNode(r)
 	}
-	if !r.Healthy {
+	if single {
+		return nil
+	}
+	if bad > 0 {
+		fmt.Fprintln(a.out)
+	}
+	if bad == 0 {
+		fmt.Fprintf(a.out, "%s All %d node(s) look healthy: %s\n", a.pal.Green("OK"), len(reports), term.SafeText(strings.Join(okNames, ", ")))
+		return nil
+	}
+	fmt.Fprintf(a.out, "%d of %d node(s) have problems.", bad, len(reports))
+	if len(okNames) > 0 {
+		fmt.Fprintf(a.out, " Healthy: %s", term.SafeText(strings.Join(okNames, ", ")))
+	}
+	fmt.Fprintln(a.out)
+	return nil
+}
+
+func anyUnhealthy(reports []*nodeReport) bool {
+	for _, r := range reports {
+		if !r.Healthy {
+			return true
+		}
+	}
+	return false
+}
+
+// whyNode explains one node.
+func (a *app) whyNode(ctx context.Context, cs kubernetes.Interface, name string) error {
+	n, err := cs.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("getting node %s: %w", name, err)
+	}
+	var pods []corev1.Pod
+	if pl, err := cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{FieldSelector: "spec.nodeName=" + name}); err == nil {
+		pods = pl.Items
+	}
+	reports := []*nodeReport{nodeReportFor(n, loadNodeEvents(ctx, cs, name)[name], pods, time.Now())}
+	if err := a.emitNodeReports(reports, true); err != nil {
+		return err
+	}
+	if anyUnhealthy(reports) {
+		return exitCodeError{code: exitProblems}
+	}
+	return nil
+}
+
+// whyAllNodes checks every node and prints the ones with problems.
+func (a *app) whyAllNodes(ctx context.Context, cs kubernetes.Interface) error {
+	nl, err := cs.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("listing nodes (you may not be allowed to see nodes on this cluster): %w", err)
+	}
+	if len(nl.Items) == 0 {
+		return fmt.Errorf("no nodes found")
+	}
+	byNode := map[string][]corev1.Pod{}
+	if pl, err := cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{}); err == nil {
+		for _, p := range pl.Items {
+			byNode[p.Spec.NodeName] = append(byNode[p.Spec.NodeName], p)
+		}
+	}
+	evs := loadNodeEvents(ctx, cs, "")
+	now := time.Now()
+	reports := make([]*nodeReport, 0, len(nl.Items))
+	for i := range nl.Items {
+		n := &nl.Items[i]
+		reports = append(reports, nodeReportFor(n, evs[n.Name], byNode[n.Name], now))
+	}
+	sort.SliceStable(reports, func(i, j int) bool {
+		if reports[i].Healthy != reports[j].Healthy {
+			return !reports[i].Healthy
+		}
+		return reports[i].Node < reports[j].Node
+	})
+	if err := a.emitNodeReports(reports, false); err != nil {
+		return err
+	}
+	if anyUnhealthy(reports) {
 		return exitCodeError{code: exitProblems}
 	}
 	return nil

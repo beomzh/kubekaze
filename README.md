@@ -38,6 +38,7 @@ Examples:
 ```text
 kubekaze status -A
 kubekaze why deploy/api
+kubekaze why node            # every node, only problems are shown
 kubekaze why node/worker-3
 kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
@@ -84,7 +85,18 @@ kubekaze completion install      # detects bash, zsh or fish from $SHELL and wri
 kubekaze completion bash         # or print the script: bash, zsh, fish, powershell
 ```
 
-Using `alias kk=kubekaze`? Add `--alias kk` (`kubekaze completion install --alias kk`), because shells bind completion to the command name.
+`completion install` writes one file in your home directory (nothing else is touched):
+
+| Shell | File | Notes |
+|-------|------|-------|
+| bash | `~/.local/share/bash-completion/completions/kubekaze` | needs the `bash-completion` package; loaded on first use |
+| zsh | `~/.local/share/zsh/site-functions/_kubekaze` | the directory must be in `fpath`; the command prints the line to add to `~/.zshrc` |
+| fish | `~/.config/fish/completions/kubekaze.fish` | loaded automatically |
+| PowerShell | none | add the printed line to `$PROFILE` |
+
+Prefer your own startup file? Skip `install` and put `source <(kubekaze completion bash)` in `~/.bashrc` (or `~/.zshrc`).
+
+Using `alias kk=kubekaze`? Shells bind completion to the command name, so tell kubekaze about the alias: `kubekaze completion install --alias kk`. This is the same as `complete -F __start_kubekaze kk`; for bash and fish it also writes a small file named after the alias (`.../completions/kk`, `kk.fish`), because they load completion files by the name you type. Or in `~/.bashrc`: `source <(kubekaze completion bash --alias kk)`.
 
 Completes commands, flags, contexts, namespaces, pods and workloads (`deploy/...`), looked up live from the cluster you point at. Mistyped commands and flags get a "Did you mean" hint, and every command has a detailed description and examples in `--help` (also `kubekaze --help` for exit codes and environment variables).
 

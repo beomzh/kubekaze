@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/beomzh/kubekaze/internal/kube"
 	"github.com/beomzh/kubekaze/internal/term"
@@ -32,6 +33,7 @@ type app struct {
 	parsed      bool // arguments and flags were accepted
 
 	// hooks for tests; nil means the real thing
+	kc     kubernetes.Interface // fake cluster for tests
 	exe    func() (string, error)
 	sanity func(path string, want update.Version) error
 }
@@ -99,4 +101,12 @@ func (a *app) newRoot() *cobra.Command {
 	applyHelp(root)
 	a.registerCompletions(root)
 	return root
+}
+
+// clientset returns the test cluster if one was injected, else a real client.
+func (a *app) clientset() (kubernetes.Interface, error) {
+	if a.kc != nil {
+		return a.kc, nil
+	}
+	return a.opts.Clientset()
 }

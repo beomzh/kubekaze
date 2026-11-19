@@ -6,6 +6,14 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Added
+- `why node` (or `nodes`) checks every node and prints only the ones with problems, plus a summary of the healthy ones. It used to be read as a pod named "node".
+- Tab completion for `why` offers `node/`, `nodes` and node names; `job/` and job names are offered for `why`, `sh` and `logs`.
+
+### Fixed
+- `completion install --alias kk` did not work in a new bash or fish shell, because both load completion files by the name you type. It now also writes a file named after the alias (bash: `.../completions/kk`, fish: `kk.fish`).
+- `completion install --help` and the README list which file is written for each shell.
+
 ## [0.1.1] - 2026-11-19
 
 ### Added

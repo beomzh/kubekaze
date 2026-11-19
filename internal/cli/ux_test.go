@@ -209,3 +209,66 @@ func TestCompletionAlias(t *testing.T) {
 		t.Error("install --alias did not write the alias line")
 	}
 }
+
+func TestInstallAliasWritesFilesNamedAfterTheAlias(t *testing.T) {
+	root := (&app{}).newRoot()
+	home := t.TempDir()
+	d := dirs{home: home}
+
+	// bash: a file "kk" that loads the real one (bash-completion looks up files by command name)
+	res, err := installCompletion(root, "bash", d, false, "kk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.extra) != 1 || filepath.Base(res.extra[0]) != "kk" || filepath.Dir(res.extra[0]) != filepath.Dir(res.path) {
+		t.Fatalf("extra = %v", res.extra)
+	}
+	b, _ := os.ReadFile(res.extra[0])
+	if !strings.Contains(string(b), filepath.ToSlash(res.path)) || !strings.Contains(string(b), "kubekaze") {
+		t.Errorf("the alias file must load the real script: %q", b)
+	}
+	// the real script still carries the alias line for people who source it directly
+	if real, _ := os.ReadFile(res.path); !strings.Contains(string(real), "-F __start_kubekaze kk") {
+		t.Error("the main file lost the alias registration")
+	}
+
+	// fish: kk.fish wraps kubekaze
+	res, err = installCompletion(root, "fish", d, false, "kk")
+	if err != nil || len(res.extra) != 1 || filepath.Base(res.extra[0]) != "kk.fish" {
+		t.Fatalf("fish: %v %+v", err, res)
+	}
+	if b, _ := os.ReadFile(res.extra[0]); !strings.Contains(string(b), "complete -c kk -w kubekaze") {
+		t.Errorf("fish alias file: %q", b)
+	}
+
+	// zsh keeps one file (the alias is in its #compdef line)
+	if res, err = installCompletion(root, "zsh", d, false, "kk"); err != nil || len(res.extra) != 0 {
+		t.Errorf("zsh: %v %+v", err, res)
+	}
+
+	// no alias, no extra files
+	if res, _ = installCompletion(root, "bash", dirs{home: t.TempDir()}, false, ""); len(res.extra) != 0 {
+		t.Errorf("no alias must not write extra files: %v", res.extra)
+	}
+
+	// somebody else's file named kk is not overwritten
+	other := dirs{home: t.TempDir()}
+	foreign := filepath.Join(other.home, ".local", "share", "bash-completion", "completions", "kk")
+	_ = os.MkdirAll(filepath.Dir(foreign), 0o755)
+	_ = os.WriteFile(foreign, []byte("# my own thing\n"), 0o644)
+	if _, err := installCompletion(root, "bash", other, false, "kk"); err == nil {
+		t.Error("a foreign file must not be overwritten")
+	}
+	if b, _ := os.ReadFile(foreign); string(b) != "# my own thing\n" {
+		t.Error("the foreign file was modified")
+	}
+}
+
+func TestShQuote(t *testing.T) {
+	if got := shQuote("/home/u/.local/share/x"); got != "'/home/u/.local/share/x'" {
+		t.Error(got)
+	}
+	if got := shQuote("a'b"); got != `'a'\''b'` {
+		t.Error(got)
+	}
+}

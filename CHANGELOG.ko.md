@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### 추가
+- `why node`(또는 `nodes`)가 모든 노드를 점검해 문제 있는 노드만 보여주고 정상 노드는 한 줄로 요약합니다. 이전에는 "node"라는 이름의 파드로 해석했습니다.
+- `why`의 탭 완성이 `node/`, `nodes`, 노드 이름을 제안하고, `why`·`sh`·`logs`는 `job/`과 job 이름도 제안합니다.
+
+### 수정
+- `completion install --alias kk`가 새 bash·fish 셸에서 동작하지 않던 문제를 고쳤습니다. 두 셸은 입력한 이름으로 자동완성 파일을 찾기 때문에, 이제 별칭 이름의 파일(bash: `.../completions/kk`, fish: `kk.fish`)도 함께 씁니다.
+- `completion install --help`와 README에 셸별로 어떤 파일이 써지는지 적었습니다.
+
 ## [0.1.1] - 2026-11-19
 
 ### 추가
