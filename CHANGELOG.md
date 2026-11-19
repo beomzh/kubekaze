@@ -6,7 +6,10 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-19
+
 ### Added
+- `kubekaze update`: update the binary online (`--check`, `--version`), from an internal mirror (`--url`, `KUBEKAZE_UPDATE_URL`) or from a downloaded archive without any network (`--from`). Checksum-verified, sanity-run before replacing, atomic replacement, refuses Homebrew/krew installs and plain http. No automatic update checks.
 - `why node/<name>`: node conditions, heartbeat, taints, events and unhealthy pods on the node, with ranked causes (kubelet down, disk/memory/PID pressure, CNI or runtime problems, cordon).
 - `completion --alias <name>` and `completion install --alias <name>`: tab completion for a shell alias such as `kk`.
 - `ctx` checks the API server and the login right after switching and warns about an expired login or an unreachable cluster (`--no-check` skips it).

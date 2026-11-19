@@ -6,7 +6,10 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-19
+
 ### 추가
+- `kubekaze update`: 온라인(`--check`, `--version`), 사내 미러(`--url`, `KUBEKAZE_UPDATE_URL`), 네트워크 없이 받아 둔 아카이브(`--from`)로 바이너리를 업데이트합니다. 체크섬 검증, 교체 전 실행 확인, 원자적 교체를 하고 Homebrew/krew 설치와 평문 http는 거부합니다. 자동 업데이트 확인은 하지 않습니다.
 - `why node/<이름>`: 노드 상태 조건, heartbeat, taint, 이벤트, 노드 위 비정상 파드를 보여주고 원인(kubelet 중단, 디스크·메모리·PID 압박, CNI·런타임 문제, cordon)에 순위를 매깁니다.
 - `completion --alias <이름>`, `completion install --alias <이름>`: `kk` 같은 셸 alias에서도 자동완성이 동작합니다.
 - `ctx`가 전환 직후 API 서버와 로그인을 확인해 만료된 로그인이나 접속 불가를 바로 경고합니다(`--no-check`로 생략).

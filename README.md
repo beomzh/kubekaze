@@ -28,6 +28,7 @@ English | [한국어](README.ko.md)
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | Bulk delete with preview and confirmation | available |
 | `kubekaze ctx [name\|-]` | Switch context; groups `oc` per-namespace contexts; warns right away about an expired login | available |
 | `kubekaze ns [name\|-]` | Switch namespace; projects on OpenShift | available |
+| `kubekaze update` | Update the binary: online, from a mirror (`--url`) or from a downloaded archive (`--from`) | available |
 | `kubekaze changes --since 1h` | What changed just before it broke | planned |
 | `--all-contexts` / `--context 'prod-*'` | Run across several clusters | planned |
 | AI summary (opt-in, local models supported) | Plain-language explanation | planned |
@@ -62,6 +63,19 @@ make build        # produces ./bin/kubekaze
 ```
 
 Release process and verification: [docs/RELEASING.md](docs/RELEASING.md). Homebrew and krew packages are planned.
+
+## Update
+
+```bash
+kubekaze update --check     # is there a newer version?
+kubekaze update             # download, verify the checksum, replace this binary
+```
+
+kubekaze never checks for updates by itself; it only contacts GitHub when you run `update`. Installed in `/bin` or `/usr/local/bin`? Run `sudo $(which kubekaze) update`.
+
+**Air-gapped network:** download `kubekaze_<version>_<os>_<arch>.tar.gz` (`.zip` on Windows) and `checksums.txt` on a machine with internet access, copy both to the server, then run `kubekaze update --from <archive>`. Nothing is downloaded; the archive is checked against `checksums.txt` first. **Internal mirror:** `kubekaze update --url https://mirror.example.com/kubekaze` (layout in [docs/RELEASING.md](docs/RELEASING.md)). Installs owned by Homebrew or krew are left to `brew upgrade` / `kubectl krew upgrade`.
+
+Versions before v0.1.1 have no `update` command: install v0.1.1 once by hand, then use `update`.
 
 ## Shell completion
 

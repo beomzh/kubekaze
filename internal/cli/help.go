@@ -302,6 +302,57 @@ changes your kubeconfig.`,
 
   # you use alias kk=kubekaze
   kubekaze completion install --alias kk`},
+	"update": {groupSetup, `Update kubekaze to the latest release. kubekaze never checks for updates on its
+own; it only contacts GitHub (or your mirror) when you run this command.
+
+Online:
+  kubekaze update --check     is there a newer version?
+  kubekaze update             download it, verify its checksum, replace this binary
+
+No internet (air-gapped network): download the archive for your OS and CPU and
+checksums.txt from https://github.com/beomzh/kubekaze/releases on a machine that
+has access, copy both files to the server, then:
+  kubekaze update --from kubekaze_0.1.1_linux_amd64.tar.gz
+The checksums.txt next to the archive is used (or pass --checksums). Nothing is
+downloaded in this mode. uname -m tells you the CPU: x86_64 is amd64, aarch64 is arm64.
+
+Internal mirror (Nexus, Artifactory, a web server): publish the release files as
+  <mirror>/latest                   one line with the newest tag, e.g. v0.1.1
+  <mirror>/v0.1.1/checksums.txt
+  <mirror>/v0.1.1/kubekaze_0.1.1_linux_amd64.tar.gz   (and the other platforms)
+and run: kubekaze update --url https://mirror.example.com/kubekaze
+(or set KUBEKAZE_UPDATE_URL). Without a latest file, name the version: --version v0.1.1.
+Only https is accepted, except for localhost.
+
+How it stays safe:
+  - the archive must match the SHA-256 in checksums.txt, or nothing is changed
+  - the new binary is started once (--version) before it replaces the old one
+  - the replacement is a single atomic rename; on any failure the old binary stays
+  - installs owned by Homebrew or krew are left alone (use brew/krew to upgrade)
+The checksum proves the file arrived intact. It does not prove who built it: for
+that, verify the cosign signature of checksums.txt (see SECURITY.md) before
+carrying files into a restricted network.
+
+Permissions: if the binary lives in a directory you cannot write (for example
+/usr/local/bin or /bin), run it with sudo: sudo $(which kubekaze) update
+(on Windows a running .exe cannot be overwritten, so the old one is renamed to
+kubekaze.exe.old and removed by the next update).`,
+		`  # is there something new?
+  kubekaze update --check
+
+  # update (asks first; -y to skip the question)
+  kubekaze update
+  sudo $(which kubekaze) update
+
+  # a specific version, or go back to one
+  kubekaze update --version v0.1.1
+  kubekaze update --version v0.1.0 --force
+
+  # air-gapped: the files were copied to this server
+  kubekaze update --from ./kubekaze_0.1.1_linux_amd64.tar.gz
+
+  # internal mirror
+  kubekaze update --url https://mirror.example.com/kubekaze`},
 	"version": {groupSetup, "", `  kubekaze version`},
 }
 

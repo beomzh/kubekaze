@@ -27,6 +27,18 @@ English | [한국어](RELEASING.ko.md)
 | Container image | Distroless, nonroot, published to GHCR, signed |
 | `go install` | Supported for developers |
 
+## Internal mirror for `kubekaze update`
+
+Networks without GitHub access can mirror the release files on any https web server, Nexus or Artifactory. Copy the files of each release unchanged:
+
+```text
+<mirror>/latest                                      one line with the newest tag, e.g. v0.1.1
+<mirror>/v0.1.1/checksums.txt
+<mirror>/v0.1.1/kubekaze_0.1.1_linux_amd64.tar.gz    (and the other platforms you use)
+```
+
+Users then run `kubekaze update --url https://mirror.example.com/kubekaze` (or set `KUBEKAZE_UPDATE_URL`). Without a `latest` file they name the version: `--version v0.1.1`. Only https is accepted (plain http only for localhost). Verify the cosign signature of `checksums.txt` ([SECURITY.md](../SECURITY.md)) before copying a release into the mirror.
+
 ## GitHub repository setup (at creation time)
 
 - **Description:** `Terminal-first Kubernetes companion: find out what is wrong and why in one command. Smart exec, crash-aware logs, multi-cluster triage.`

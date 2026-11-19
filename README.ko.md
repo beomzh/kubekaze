@@ -28,6 +28,7 @@
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | 미리보기와 확인 후 일괄 삭제 | 사용 가능 |
 | `kubekaze ctx [name\|-]` | 컨텍스트 전환. `oc`가 만드는 네임스페이스별 컨텍스트를 묶어 보여주고, 만료된 로그인을 바로 경고 | 사용 가능 |
 | `kubekaze ns [name\|-]` | 네임스페이스 전환, OpenShift는 프로젝트 | 사용 가능 |
+| `kubekaze update` | 바이너리 업데이트: 온라인, 미러(`--url`), 받아 둔 아카이브(`--from`) | 사용 가능 |
 | `kubekaze changes --since 1h` | 깨지기 직전에 무엇이 바뀌었나 | 계획 |
 | `--all-contexts` / `--context 'prod-*'` | 여러 클러스터에 동시에 실행 | 계획 |
 | AI 요약(선택, 로컬 모델 지원) | 쉬운 말로 설명 | 계획 |
@@ -62,6 +63,19 @@ make build        # ./bin/kubekaze 생성
 ```
 
 릴리즈 절차와 검증은 [docs/RELEASING.ko.md](docs/RELEASING.ko.md)를 참고하세요. Homebrew와 krew 패키지는 계획 중입니다.
+
+## 업데이트
+
+```bash
+kubekaze update --check     # 새 버전이 있는지 확인
+kubekaze update             # 받아서 체크섬을 확인하고 이 바이너리를 교체
+```
+
+kubekaze는 스스로 업데이트를 확인하지 않으며, `update`를 실행할 때만 GitHub에 접속합니다. `/bin`이나 `/usr/local/bin`에 설치했다면 `sudo $(which kubekaze) update`로 실행하세요.
+
+**폐쇄망:** 인터넷이 되는 PC에서 `kubekaze_<버전>_<os>_<arch>.tar.gz`(Windows는 `.zip`)와 `checksums.txt`를 받아 서버로 옮긴 뒤 `kubekaze update --from <아카이브>`를 실행합니다. 아무것도 내려받지 않고, 먼저 `checksums.txt`로 파일을 확인합니다. **사내 미러:** `kubekaze update --url https://mirror.example.com/kubekaze`(구조는 [docs/RELEASING.ko.md](docs/RELEASING.ko.md)). Homebrew나 krew로 설치한 것은 `brew upgrade` / `kubectl krew upgrade`에 맡깁니다.
+
+v0.1.1 이전 버전에는 `update` 명령이 없습니다. v0.1.1을 한 번만 직접 설치하면 이후에는 `update`를 쓸 수 있습니다.
 
 ## 셸 자동완성
 
