@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 수정
+- `completion install --alias kk`가 새 bash·fish 셸에서 동작하지 않던 문제를 고쳤습니다. 두 셸은 입력한 이름으로 자동완성 파일을 찾기 때문에, 이제 별칭 이름의 파일(bash: `.../completions/kk`, fish: `kk.fish`)도 함께 씁니다.
+- `completion install --help`와 README에 셸별로 어떤 파일이 써지는지 적었습니다.
+
 ## [0.1.1] - 2026-11-19
 
 ### 추가

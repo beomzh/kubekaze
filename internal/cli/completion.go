@@ -139,8 +139,25 @@ its own. Name the alias with --alias and it is wired up too:
 		Short: "Install tab completion for your shell",
 		Long: `Write the completion script to your user directory and tell you what, if
 anything, is left to do. The shell is detected from $SHELL unless given.
+
+Files written ($XDG_DATA_HOME defaults to ~/.local/share, $XDG_CONFIG_HOME to ~/.config):
+
+  bash        $XDG_DATA_HOME/bash-completion/completions/kubekaze
+              (needs the bash-completion package; loaded on first use)
+  zsh         $XDG_DATA_HOME/zsh/site-functions/_kubekaze
+              (the directory must be in fpath; the command tells you the line to add)
+  fish        $XDG_CONFIG_HOME/fish/completions/kubekaze.fish
+  powershell  nothing is written; add one line to your $PROFILE (shown)
+
+With --alias kk, bash and fish also get a tiny file named after the alias
+(.../completions/kk, .../completions/kk.fish), because both load completion files
+by the name you type. zsh lists the alias inside its single file.
+
 Nothing outside your home directory is touched, and an existing file that does
-not look like a kubekaze completion is left alone unless --force is given.`,
+not look like a kubekaze completion is left alone unless --force is given.
+
+Prefer your own startup file? Skip install and add one line to ~/.bashrc (or
+~/.zshrc) instead:  source <(kubekaze completion bash --alias kk)`,
 		Example: `  # detect the shell and install
   kubekaze completion install
 
@@ -172,6 +189,9 @@ not look like a kubekaze completion is left alone unless --force is given.`,
 			if res.path != "" {
 				fmt.Fprintf(a.out, "%s wrote %s\n", a.pal.Green("OK"), res.path)
 			}
+			for _, e := range res.extra {
+				fmt.Fprintf(a.out, "%s wrote %s\n", a.pal.Green("OK"), e)
+			}
 			fmt.Fprintln(a.out, res.note)
 			return nil
 		},
@@ -194,7 +214,11 @@ func detectShell() string {
 
 type dirs struct{ home, dataHome, configHome string }
 
-type installResult struct{ path, note string }
+type installResult struct {
+	path  string
+	extra []string // additional files written for an alias
+	note  string
+}
 
 // installCompletion writes the completion script for shell below the user's
 // directories. It is separate from the command so that it can be tested.
@@ -238,20 +262,49 @@ func installCompletion(root *cobra.Command, shell string, d dirs, force bool, al
 	if err != nil {
 		return installResult{}, err
 	}
+	if err := writeOwnFile(path, script, force); err != nil {
+		return installResult{}, err
+	}
+	res := installResult{path: path, note: note}
+
+	// bash-completion and fish load completion files lazily, by the name of the
+	// command being completed: typing "kk<TAB>" looks for a file named kk, not
+	// kubekaze. So an alias needs a small file of its own that pulls in the real one.
+	if alias != "" {
+		var extra string
+		var body string
+		switch shell {
+		case "bash":
+			extra = filepath.Join(filepath.Dir(path), alias)
+			body = fmt.Sprintf("# kubekaze: completion for the alias %s (loads the real script)\n. %q\n", alias, path)
+		case "fish":
+			extra = filepath.Join(filepath.Dir(path), alias+".fish")
+			body = fmt.Sprintf("# kubekaze: completion for the alias %s\ncomplete -c %s -w kubekaze\n", alias, alias)
+		}
+		if extra != "" {
+			if err := writeOwnFile(extra, []byte(body), force); err != nil {
+				return installResult{}, err
+			}
+			res.extra = append(res.extra, extra)
+		}
+	}
+	return res, nil
+}
+
+// writeOwnFile writes data atomically. It refuses to replace an existing file
+// that does not mention kubekaze (someone else's file) unless force is set.
+func writeOwnFile(path string, data []byte, force bool) error {
 	if existing, err := os.ReadFile(path); err == nil && !force && !bytes.Contains(existing, []byte("kubekaze")) {
-		return installResult{}, fmt.Errorf("%s exists and does not look like a kubekaze completion; use --force to replace it", path)
+		return fmt.Errorf("%s exists and does not look like a kubekaze completion; use --force to replace it", path)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return installResult{}, err
+		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, script, 0o644); err != nil {
-		return installResult{}, err
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		return installResult{}, err
-	}
-	return installResult{path: path, note: note}, nil
+	return os.Rename(tmp, path)
 }
 
 // ---- dynamic completion ----------------------------------------------------

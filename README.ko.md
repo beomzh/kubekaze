@@ -84,7 +84,18 @@ kubekaze completion install      # $SHELL에서 bash, zsh, fish를 감지해 홈
 kubekaze completion bash         # 또는 스크립트 출력: bash, zsh, fish, powershell
 ```
 
-`alias kk=kubekaze`를 쓰신다면 `--alias kk`를 붙이세요(`kubekaze completion install --alias kk`). 셸은 자동완성을 명령 이름에 묶기 때문입니다.
+`completion install`은 홈 디렉터리에 파일 하나를 씁니다(그 밖에는 건드리지 않습니다).
+
+| 셸 | 파일 | 참고 |
+|----|------|------|
+| bash | `~/.local/share/bash-completion/completions/kubekaze` | `bash-completion` 패키지가 필요하며 처음 쓸 때 불러옵니다 |
+| zsh | `~/.local/share/zsh/site-functions/_kubekaze` | 이 디렉터리가 `fpath`에 있어야 하며, `~/.zshrc`에 추가할 줄을 알려 줍니다 |
+| fish | `~/.config/fish/completions/kubekaze.fish` | 자동으로 불러옵니다 |
+| PowerShell | 없음 | 안내하는 한 줄을 `$PROFILE`에 추가 |
+
+직접 관리하는 시작 파일을 선호하면 `install` 대신 `~/.bashrc`(또는 `~/.zshrc`)에 `source <(kubekaze completion bash)`를 넣으세요.
+
+`alias kk=kubekaze`를 쓰신다면 셸은 자동완성을 명령 이름에 묶으므로 별칭을 알려 줘야 합니다: `kubekaze completion install --alias kk`. 이것은 `complete -F __start_kubekaze kk`와 같은 일을 하며, bash와 fish는 입력한 이름으로 자동완성 파일을 찾기 때문에 별칭 이름의 작은 파일(`.../completions/kk`, `kk.fish`)도 함께 씁니다. 또는 `~/.bashrc`에 `source <(kubekaze completion bash --alias kk)`를 넣어도 됩니다.
 
 명령, 플래그, 컨텍스트, 네임스페이스, 파드, 워크로드(`deploy/...`)를 완성하며 이름은 연결된 클러스터에서 실시간으로 가져옵니다. 명령이나 플래그를 잘못 입력하면 "Did you mean" 힌트를 보여주고, 모든 명령의 `--help`에 상세 설명과 예시가 있습니다(종료 코드와 환경 변수는 `kubekaze --help`).
 
