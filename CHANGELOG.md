@@ -9,6 +9,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 ## [0.1.7] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
 
 ### Fixed
+- `sh --debug -- <command>`: `--debug` was silently ignored and the command ran in the application's own container. It is now refused with a message, because a debug container is interactive.
 - `why <pod>`: a `CreateContainerError` caused by the node's container storage (for example `creating overlay mount ... input/output error`) was reported as "missing ConfigMap/Secret". It is now reported as a failing node filesystem, with what to check on the node. A real missing ConfigMap/Secret is still reported as before.
 - `why` / `events`: very long event and evidence messages (runtime errors can exceed 1000 characters) are cut at 240 characters in tables. `-o json` keeps the full text.
 - `why <pod>`: log lines are quoted only as evidence for the container they were read from, not for another container of the same pod.
