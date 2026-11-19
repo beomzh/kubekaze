@@ -6,6 +6,15 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.2-1] - 2026-11-19 (not released, no tag; will ship in the next release, 0.1.3)
+
+### Fixed
+- `why node` / `status`: a Ready node was reported as silent when its heartbeat was a few minutes old. The kubelet only rewrites the node status about every 5 minutes (liveness is a Lease), so the limit is now 10 minutes.
+- `why node`: warnings older than 2 hours (OpenShift keeps events for days) are no longer treated as causes, and an `ImageGCFailed` "container not found" message is recognised as harmless noise instead of a disk problem.
+
+### Added
+- `why node`: a failing node-level network agent (ovnkube-node, calico-node, cilium, aws-node, flannel, multus, ...) is reported as the cause of pods stuck in `ContainerCreating`, with the failing pod to explain next; several pods stuck for over 5 minutes are reported as a node-level problem.
+
 ## [0.1.2] - 2026-11-19
 
 ### Added

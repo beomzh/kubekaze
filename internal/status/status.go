@@ -86,9 +86,16 @@ func lower(s string) string {
 	return string(b)
 }
 
-// heartbeatStale is how long a kubelet may be silent before the node is
-// considered unreachable even if its Ready condition has not flipped yet.
-const heartbeatStale = 2 * time.Minute
+// HeartbeatStale is how old the Ready condition's heartbeat may be before a
+// node that still says Ready=True is reported as silent.
+//
+// This must be generous. Since Kubernetes 1.17 the kubelet proves it is alive
+// with a Lease renewed every ~10s, and only writes the node status (including
+// this heartbeat time) every 5 minutes when nothing changed. So a heartbeat of
+// 4 minutes is normal. When a kubelet really goes silent, the node lifecycle
+// controller flips Ready to Unknown within about a minute, which is reported
+// as Unknown anyway; this threshold only catches a stuck controller manager.
+const HeartbeatStale = 10 * time.Minute
 
 func nodes(in Input) []Finding {
 	var out []Finding
@@ -102,7 +109,7 @@ func nodes(in Input) []Finding {
 				known = c.Status != corev1.ConditionUnknown
 				ready = c.Status == corev1.ConditionTrue
 				readyDetail = condDetail(c)
-				if ready && !c.LastHeartbeatTime.IsZero() && in.Now.Sub(c.LastHeartbeatTime.Time) > heartbeatStale {
+				if ready && !c.LastHeartbeatTime.IsZero() && in.Now.Sub(c.LastHeartbeatTime.Time) > HeartbeatStale {
 					ready, known = false, false
 					readyDetail = "no heartbeat for " + in.Now.Sub(c.LastHeartbeatTime.Time).Round(time.Second).String()
 				}

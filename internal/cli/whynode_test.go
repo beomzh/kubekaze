@@ -145,3 +145,59 @@ func TestWhyTargetCompletionOffersNodes(t *testing.T) {
 		t.Errorf("sh/logs must not complete node names: %v", n)
 	}
 }
+
+// Regression for a real report: with "why nodes" a healthy node was called
+// silent because its heartbeat was 4 minutes old, and another node was blamed
+// on a 15 day old ImageGCFailed event while the real lead (a failing
+// ovnkube-node pod and the pods stuck behind it) was ranked below it.
+func TestWhyNodesRealWorldReport(t *testing.T) {
+	now := time.Now()
+	node := func(name string, hbAge time.Duration) *corev1.Node {
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, CreationTimestamp: metav1.NewTime(now.Add(-72 * 24 * time.Hour))},
+			Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+				{Type: corev1.NodeReady, Status: corev1.ConditionTrue, Reason: "KubeletReady", LastHeartbeatTime: metav1.NewTime(now.Add(-hbAge))}}}}
+	}
+	stuck := func(ns, name, nodeName string) *corev1.Pod {
+		return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, CreationTimestamp: metav1.NewTime(now.Add(-3 * time.Hour))},
+			Spec: corev1.PodSpec{NodeName: nodeName}, Status: corev1.PodStatus{Phase: corev1.PodPending,
+				ContainerStatuses: []corev1.ContainerStatus{{State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ContainerCreating"}}}}}}
+	}
+	ovn := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-node-gwqdl", CreationTimestamp: metav1.NewTime(now.Add(-40 * 24 * time.Hour))},
+		Spec: corev1.PodSpec{NodeName: "worker-1"}, Status: corev1.PodStatus{Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{{State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CreateContainerError"}}}}}}
+	oldEvent := &corev1.Event{
+		ObjectMeta:     metav1.ObjectMeta{Namespace: "default", Name: "gc"},
+		InvolvedObject: corev1.ObjectReference{Kind: "Node", Name: "worker-1"},
+		Type:           "Warning", Reason: "ImageGCFailed", Count: 1,
+		Message:       "rpc error: code = NotFound desc = could not find container: ID does not exist",
+		LastTimestamp: metav1.NewTime(now.Add(-15 * 24 * time.Hour)),
+	}
+	cs := fake.NewSimpleClientset(
+		node("aio-2", 4*time.Minute+10*time.Second), // heartbeat 4 minutes old: normal
+		node("worker-1", 98*time.Second), node("worker-2", 98*time.Second),
+		ovn, stuck("openshift-monitoring", "metrics-server-6d76ffbf88-6rntd", "worker-1"), stuck("openshift-image-registry", "image-pruner-29898720-b8dws", "worker-1"),
+		oldEvent,
+	)
+	var out bytes.Buffer
+	a := &app{out: &out, err: &bytes.Buffer{}, pal: term.Palette{}, output: "text"}
+	err := a.whyAllNodes(context.Background(), cs)
+	var ec exitCodeError
+	if err == nil || !asExit(err, &ec) {
+		t.Fatalf("worker-1 has a real problem, exit code expected: %v", err)
+	}
+	text := out.String()
+	if strings.Contains(text, "stopped reporting") || strings.Contains(text, "Node aio-2") {
+		t.Errorf("a Ready node with a 4 minute heartbeat must not be flagged:\n%s", text)
+	}
+	if strings.Contains(text, "cannot free enough resources") {
+		t.Errorf("a 15 day old GC warning must not be a cause:\n%s", text)
+	}
+	causes := text[strings.Index(text, "Suspected causes"):]
+	first := causes[:strings.Index(causes, "\n2.")]
+	if !strings.Contains(first, "network (CNI) agent") || !strings.Contains(first, "ovnkube-node-gwqdl") {
+		t.Errorf("the failing CNI agent must be cause number 1:\n%s", text)
+	}
+	if !strings.Contains(text, "1 of 3 node(s) have problems") || !strings.Contains(text, "Healthy: aio-2, worker-2") {
+		t.Errorf("summary wrong:\n%s", text)
+	}
+}
