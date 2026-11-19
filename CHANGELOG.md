@@ -6,6 +6,8 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-19
+
 ### Added
 - `why node` (or `nodes`) checks every node and prints only the ones with problems, plus a summary of the healthy ones. It used to be read as a pod named "node".
 - Tab completion for `why` offers `node/`, `nodes` and node names; `job/` and job names are offered for `why`, `sh` and `logs`.
