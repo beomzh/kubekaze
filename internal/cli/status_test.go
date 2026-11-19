@@ -32,7 +32,7 @@ func TestPrintFindings(t *testing.T) {
 	var out bytes.Buffer
 	a := &app{out: &out, err: &bytes.Buffer{}, pal: term.Palette{}}
 	a.printFindings(nil, "default")
-	if !strings.Contains(out.String(), "OK Everything looks healthy in default") {
+	if !strings.Contains(out.String(), "OK Everything looks healthy in default") || !strings.Contains(out.String(), "status -A") {
 		t.Errorf("healthy output: %q", out.String())
 	}
 	out.Reset()

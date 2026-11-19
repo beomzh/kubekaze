@@ -106,3 +106,60 @@ func TestStuckTerminating(t *testing.T) {
 		t.Errorf("cause = %+v", c)
 	}
 }
+
+// The message below is the real error from an OpenShift node whose container
+// storage returned I/O errors. It used to be reported as "missing ConfigMap".
+const overlayIOError = `failed to mount container k8s_ovnkube-controller_ovnkube-node-gwqdl_openshift-ovn-kubernetes_a8fa7790_2(f35d7dc4): creating overlay mount to /var/lib/containers/storage/overlay/86e74a92/merged, mount_data="lowerdir=/var/lib/containers/storage/overlay/l/SF27MLJUOLXVYWZGLATMDHWZ7G:/var/lib/containers/storage/overlay/l/DVH4VWICPKMGJAGVPFSATFQGEW,upperdir=/var/lib/containers/storage/overlay/86e74a92/diff,workdir=/var/lib/containers/storage/overlay/86e74a92/work,volatile,context=\"system_u:object_r:container_file_t:s0:c351,c793\"": input/output error`
+
+func TestStorageIOErrorIsNotAConfigProblem(t *testing.T) {
+	p := podWith(corev1.ContainerStatus{Name: "app", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{
+		Reason: "CreateContainerError", Message: "Error: " + overlayIOError}}})
+	c := top(t, Diagnose(Evidence{Pod: p, Now: now}))
+	if !strings.Contains(c.Title, "container storage failed") {
+		t.Fatalf("title = %q", c.Title)
+	}
+	if strings.Contains(c.Title+c.Hint, "ConfigMap") {
+		t.Errorf("must not point at ConfigMaps: %+v", c)
+	}
+	if len(c.Evidence[0]) > maxEvidence+len("CreateContainerError: ")+4 {
+		t.Errorf("evidence not shortened: %d chars", len(c.Evidence[0]))
+	}
+}
+
+func TestStorageIOErrorFromEventsToo(t *testing.T) {
+	p := podWith(corev1.ContainerStatus{Name: "app"})
+	p.Status.Phase = corev1.PodPending
+	c := top(t, Diagnose(Evidence{Pod: p, Now: now, Events: []events.Row{{Type: "Warning", Reason: "Failed", Message: overlayIOError, Count: 3}}}))
+	if !strings.Contains(c.Title, "container storage failed") {
+		t.Errorf("got %q", c.Title)
+	}
+}
+
+func TestMissingConfigStillReportedAsConfig(t *testing.T) {
+	p := podWith(corev1.ContainerStatus{Name: "app", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{
+		Reason: "CreateContainerConfigError", Message: `secret "db" not found`}}})
+	if c := top(t, Diagnose(Evidence{Pod: p, Now: now})); !strings.Contains(c.Title, "ConfigMap/Secret") {
+		t.Errorf("got %q", c.Title)
+	}
+}
+
+func TestLogLinesOnlyForTheirOwnContainer(t *testing.T) {
+	p := podWith(corev1.ContainerStatus{Name: "app", LastTerminationState: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Reason: "Error", ExitCode: 1}}})
+	other := Diagnose(Evidence{Pod: p, Now: now, LogTail: []string{"from the sidecar"}, LogContainer: "sidecar"})
+	if strings.Contains(strings.Join(other[0].Evidence, "|"), "sidecar") {
+		t.Errorf("logs of another container quoted: %v", other[0].Evidence)
+	}
+	own := Diagnose(Evidence{Pod: p, Now: now, LogTail: []string{"boom"}, LogContainer: "app"})
+	if !strings.Contains(strings.Join(own[0].Evidence, "|"), "boom") {
+		t.Errorf("own logs missing: %v", own[0].Evidence)
+	}
+}
+
+func TestShorten(t *testing.T) {
+	if got := Shorten("short", 10); got != "short" {
+		t.Errorf("got %q", got)
+	}
+	if got := Shorten("한글로된아주긴메시지입니다", 5); got != "한글로된…" {
+		t.Errorf("got %q", got)
+	}
+}
