@@ -18,6 +18,38 @@ type helpInfo struct {
 // --help. Keeping them here (instead of next to each command) makes it easy to
 // review the help text as a whole.
 var help = map[string]helpInfo{
+	"top": {groupTriage, `Show a usage snapshot from the metrics API (metrics-server): which node is
+full, which pods use the most CPU or memory, which namespace is the heaviest.
+Read-only.
+
+  Nodes        CPU and memory used vs allocatable, highest first; above 80% is red
+  Pods         the top pods (--limit, default 10) by --sort cpu|memory in the
+               current namespace, or in every namespace with -A; usage is also
+               shown as a percent of the limit, so pods close to throttling or
+               OOM stand out ("-" means no limit is set)
+  top ns       usage summed per namespace (all namespaces)
+
+With -w the screen is redrawn every --interval (default 5s) when stdout is a
+terminal; otherwise each snapshot is printed in turn. Ctrl-C exits with 130.
+
+If metrics-server is not installed or not ready, or you may not read
+metrics.k8s.io, a single line says what to install or which RBAC is missing and
+the exit code is 1. Use -o json for scripts.`,
+		`  # nodes plus the 10 busiest pods in this namespace
+  kubekaze top
+
+  # the 20 pods using the most memory in the whole cluster
+  kubekaze top -A --sort memory --limit 20
+
+  # which namespace is heaviest?
+  kubekaze top ns
+
+  # live view, every 2 seconds
+  kubekaze top -A -w --interval 2s
+
+  # for scripts
+  kubekaze top -A -o json`},
+
 	"status": {groupTriage, `Show only what is unhealthy, so you do not have to read long lists of healthy objects.
 
 What is checked:

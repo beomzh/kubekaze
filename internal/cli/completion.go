@@ -498,6 +498,15 @@ func fixed(vals ...string) func(*cobra.Command, []string, string) ([]string, cob
 	return cobra.FixedCompletions(vals, cobra.ShellCompDirectiveNoFileComp)
 }
 
+func fixedArgs(vals ...string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return vals, cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
 // registerCompletions wires dynamic completion into the command tree.
 func (a *app) registerCompletions(root *cobra.Command) {
 	_ = root.RegisterFlagCompletionFunc("context", func(c *cobra.Command, args []string, tc string) ([]string, cobra.ShellCompDirective) {
@@ -521,6 +530,7 @@ func (a *app) registerCompletions(root *cobra.Command) {
 	set("logs", a.completeTargets)
 	set("why", a.completeWhyTargets)
 	set("rm", a.completeRmArgs)
+	set("top", fixedArgs("ns"))
 
 	flag := func(cmd, name string, fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) {
 		if c := byName[cmd]; c != nil {
@@ -533,6 +543,9 @@ func (a *app) registerCompletions(root *cobra.Command) {
 	flag("events", "type", fixed("Warning", "Normal"))
 	flag("events", "since", fixed("10m", "30m", "1h", "2h", "1d"))
 	flag("rm", "older-than", fixed("10m", "30m", "1h", "2h", "1d"))
+	flag("top", "sort", fixed("cpu", "memory"))
+	flag("top", "limit", fixed("5", "10", "20", "50"))
+	flag("top", "interval", fixed("2s", "5s", "10s", "30s"))
 	flag("logs", "since", fixed("1m", "10m", "30m", "1h", "2h"))
 }
 

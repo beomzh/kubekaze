@@ -39,6 +39,7 @@ Design stance: **command in, answer out.** No resident UI. Output is readable by
   3. If the image has no shell (distroless/scratch), offer an **ephemeral debug container** (`kubectl debug` semantics) with a configurable, pinned image.
   4. On OpenShift clusters, behave like `oc rsh` (same defaults) without requiring `oc`.
 - `logs`: stern-style multi-pod tail, but crash-aware: if a container restarted, the previous container's log is included automatically (what `-p` does) and errors are highlighted.
+- `top`: a read-only usage snapshot from the metrics API (metrics-server): nodes vs allocatable, the top pods by CPU or memory with usage as a percent of the limit (so throttling or near-OOM pods stand out), per-namespace totals (`top ns`) and a `-w` live view. Without metrics-server it says what to install instead of failing with a stack of errors.
 - `rm`: bulk-delete pods (and other resources) without chaining `get | grep | awk | xargs kubectl delete`.
   - Select by name pattern, label, status (`--status CrashLoopBackOff,Error,Evicted,Completed`), age (`--older-than 2h`), node, or pick interactively from a list.
   - **Always previews first** (a dry run listing exactly what will be deleted); it deletes only after confirmation. Deleting many objects, or anything on a production-flagged context, requires typing the count or name; `--yes` is for scripts and still honours the safety cap.
@@ -70,7 +71,7 @@ An optional, **off by default** feature: the already-collected, already-redacted
 
 ## MVP scope
 
-`status`, `why`, `events`, `sh`, `logs`, `rm`, `ctx`, and `ns`. Everything else (`changes`, fan-out, rule packs, AI) follows in later minor releases.
+`status`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, and `ns`. Everything else (`changes`, fan-out, rule packs, AI) follows in later minor releases.
 
 ## Platforms
 

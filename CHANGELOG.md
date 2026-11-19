@@ -6,6 +6,12 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
+
+### Added
+- `kubekaze top`: read-only usage snapshot from the metrics API (metrics-server). Nodes with CPU and memory vs allocatable (highest first, above 80% in red) and the top pods (`--limit`, default 10) by `--sort cpu|memory` in the current namespace or with `-A`, shown with the percent of their limit so throttling or near-OOM pods stand out. `top ns` (or `--by-namespace`) sums usage per namespace. `-w/--watch [--interval 5s]` redraws in place on a terminal and prints plain repeated snapshots otherwise; Ctrl-C exits with 130. `-o json` and tab completion for `--sort`, `--limit`, `--interval`.
+- When metrics-server is missing or the metrics API is forbidden, `top` prints one line saying what to install or which RBAC is needed and exits 1.
+
 ## [0.1.4] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
 
 ### Added
