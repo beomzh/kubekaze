@@ -22,6 +22,7 @@ Design stance: **command in, answer out.** No resident UI. Output is readable by
 ### 1. Triage (incident response)
 
 - `status`: show only what is unhealthy in a namespace or cluster (CrashLoopBackOff, Pending, ImagePullBackOff, failed Jobs, NotReady nodes, PVCs near full, certificates near expiry). Healthy objects are hidden.
+- `ls [kind]`: one-screen overview of what exists in a namespace (workloads with ready/desired, jobs, services, ingress/routes, PVCs, ConfigMap and Secret names), unhealthy first. Secrets are listed by name only, never their values.
 - `why <kind>/<name>`: one correlated timeline for an object: current state, events, last termination reason (OOMKilled, exit code), the tail of the previous container's log, the owner chain (Pod → ReplicaSet → Deployment), and what changed recently. Ends with ranked **suspected causes** produced by deterministic rules.
 - `events`: events sorted the way you actually need them, which `kubectl get events` does not do by default.
   - `events -A` (all namespaces) or `events -n a,b` (several); default sort is by last-seen time, newest last, so the latest problem is at the bottom of your terminal.
@@ -71,7 +72,7 @@ An optional, **off by default** feature: the already-collected, already-redacted
 
 ## MVP scope
 
-`status`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, and `ns`. Everything else (`changes`, fan-out, rule packs, AI) follows in later minor releases.
+`status`, `ls`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, and `ns`. Everything else (`changes`, fan-out, rule packs, AI) follows in later minor releases.
 
 ## Platforms
 

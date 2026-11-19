@@ -531,6 +531,7 @@ func (a *app) registerCompletions(root *cobra.Command) {
 	set("why", a.completeWhyTargets)
 	set("rm", a.completeRmArgs)
 	set("top", fixedArgs("ns"))
+	set("ls", a.completeLsArgs)
 
 	flag := func(cmd, name string, fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) {
 		if c := byName[cmd]; c != nil {

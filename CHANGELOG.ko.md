@@ -12,6 +12,14 @@
 - `kubekaze top`: metrics API(metrics-server)를 읽는 읽기 전용 사용량 스냅샷. 노드의 CPU·메모리 사용량과 allocatable 대비 비율(높은 순, 80% 초과는 빨강), 현재 네임스페이스(`-A`면 전체)의 `--sort cpu|memory` 상위 파드(`--limit`, 기본 10)를 limit 대비 비율과 함께 보여 주어 스로틀링·OOM 직전 파드가 눈에 띕니다. `top ns`(또는 `--by-namespace`)는 네임스페이스별로 합산합니다. `-w/--watch [--interval 5s]`는 터미널에서는 제자리에서 다시 그리고, 아니면 스냅샷을 순서대로 출력합니다. Ctrl-C는 종료 코드 130입니다. `-o json`과 `--sort`, `--limit`, `--interval` 탭 완성을 지원합니다.
 - metrics-server가 없거나 metrics API 권한이 없으면 무엇을 설치하거나 어떤 RBAC가 필요한지 한 줄로 알리고 종료 코드 1로 끝납니다.
 
+## [0.1.5] - 2026-11-19 (미배포, 태그 없음, 다음 마이너 릴리즈인 0.2.0에 포함 예정)
+
+### 추가
+- `kubekaze ls`: 현재 네임스페이스(`-n`, `-A`)를 한 화면으로 요약합니다. Deployment·StatefulSet·DaemonSet(준비/원하는 수), Job, CronJob, Service, Ingress, OpenShift Route(클러스터에 있을 때만), PVC 상태, ConfigMap·Secret 이름. 비정상이 먼저 나오고, 많은 정상 항목은 개수로 요약하며, 읽을 권한이 없는 종류는 건너뛴 것으로 표시합니다.
+- `kubekaze ls <종류> [이름...]`은 한 종류만 자세히 보여줍니다(`deploy`, `sts`, `ds`, `job`, `cronjob`, `svc`, `ingress`, `route`, `pvc`, `cm`, `secret`). 탭 완성으로 종류와 객체 이름을 제안하며 `-o json`을 지원합니다.
+- Secret은 이름, 타입, 키 개수만 표시하고 데이터는 절대 출력하지 않습니다.
+
+
 ## [0.1.4] - 2026-11-19 (미배포, 태그 없음, 다음 마이너 릴리즈인 0.2.0에 포함 예정)
 
 ### 추가
