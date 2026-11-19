@@ -21,6 +21,7 @@
 | 명령 | 기능 | 상태 |
 |------|------|------|
 | `kubekaze status` | 비정상인 것만 표시: 노드(항상 점검), 워크로드, 파드, Job, PVC. 문제가 있으면 종료 코드 3 | 사용 가능 |
+| `kubekaze ls [kind [name]]` | 네임스페이스를 한 화면으로 요약(워크로드, Job, Service, Ingress/Route, PVC, ConfigMap·Secret 이름. Secret 값은 절대 표시하지 않음). `ls deploy`처럼 한 종류만 자세히 | 사용 가능 |
 | `kubekaze why <pod\|deploy/x\|node/x>` | 파드, 워크로드, 노드에 대한 타임라인, 근거, 순위가 매겨진 의심 원인 | 사용 가능 |
 | `kubekaze events -A --type Warning` | 전체 네임스페이스 이벤트를 시간순 정렬, `--summary`는 네임스페이스별 요약 | 사용 가능 |
 | `kubekaze sh <pod\|deploy/x>` | 동작하는 셸(bash/sh/ash)을 찾거나 임시 디버그 컨테이너 사용 | 사용 가능 |
@@ -38,6 +39,7 @@
 
 ```text
 kubekaze status -A
+kubekaze ls
 kubekaze why deploy/api
 kubekaze why node            # 모든 노드, 문제 있는 것만 표시
 kubekaze why node/worker-3

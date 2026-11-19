@@ -93,7 +93,7 @@ func (a *app) newRoot() *cobra.Command {
 	f.StringVarP(&a.output, "output", "o", "text", "output format: text|json")
 	f.BoolVarP(&a.opts.AllNamespaces, "all-namespaces", "A", false, "all namespaces")
 
-	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd(), a.newStatusCmd(), a.newWhyCmd(), a.newLogsCmd(), a.newTopCmd(), a.newVersionCmd(), a.newUpdateCmd())
+	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd(), a.newStatusCmd(), a.newLsCmd(), a.newWhyCmd(), a.newLogsCmd(), a.newTopCmd(), a.newVersionCmd(), a.newUpdateCmd())
 	root.AddCommand(a.newCompletionCmd(root))
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.SetFlagErrorFunc(a.flagError)

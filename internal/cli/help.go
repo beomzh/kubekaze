@@ -82,6 +82,41 @@ Exit codes: 0 healthy, 3 problems found, 1 error. Use -o json for scripts.`,
   # use in a script: alert when the exit code is 3
   kubekaze status -A -o json > status.json || echo "problems found"`},
 
+	"ls": {groupDaily, `See what exists in a namespace on one screen, without knowing any resource name.
+
+The overview shows, for the current namespace (-n to pick one, -A for all):
+  Deployments, StatefulSets, DaemonSets   ready/desired; unhealthy ones first, in red
+  Jobs, CronJobs                          state; failed Jobs are unhealthy
+  Services, Ingresses, Routes             Routes (OpenShift) only if the cluster has them
+  PersistentVolumeClaims                  phase; anything not Bound is unhealthy
+  ConfigMaps, Secrets                     a count and the names
+
+Secrets: only names, type and the number of keys are shown. The values are
+never printed, not even in -o json.
+
+A kind with more than 10 objects lists only its unhealthy ones and the count of
+the healthy ones. Kinds you may not read are reported as "skipped ... (forbidden)"
+at the end; kinds with no objects are listed on a "none:" line.
+
+"kubekaze ls <kind>" lists every object of one kind in detail, optionally only
+the named ones. Kinds: deploy, sts, ds, job, cronjob, svc, ingress, route, pvc,
+cm, secret (singular, plural and the full names also work). Tab completion
+offers kinds and object names.`,
+		`  # what is in this namespace?
+  kubekaze ls
+
+  # another namespace, or everything
+  kubekaze ls -n payments
+  kubekaze ls -A
+
+  # one kind in detail, or one object
+  kubekaze ls deploy
+  kubekaze ls pvc
+  kubekaze ls secret db-credentials
+
+  # for scripts
+  kubekaze ls -o json`},
+
 	"why": {groupTriage, `Explain why something is not working. kubekaze gathers the evidence you would
 collect by hand and ranks suspected causes with rules (no AI, nothing is sent
 anywhere).

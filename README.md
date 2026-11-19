@@ -21,6 +21,7 @@ English | [한국어](README.ko.md)
 | Command | What it does | State |
 |---------|--------------|-------|
 | `kubekaze status` | Only what is unhealthy: nodes (always checked), workloads, pods, jobs, PVCs. Exit code 3 when problems exist | available |
+| `kubekaze ls [kind [name]]` | One-screen overview of the namespace (workloads, jobs, services, ingress/routes, PVCs, ConfigMap and Secret names; Secret values are never shown); `ls deploy` etc. lists one kind | available |
 | `kubekaze why <pod\|deploy/x\|node/x>` | Timeline, evidence and ranked suspected causes for a pod, a workload or a node | available |
 | `kubekaze events -A --type Warning` | Events sorted by time across namespaces; `--summary` per namespace | available |
 | `kubekaze sh <pod\|deploy/x>` | Finds a working shell (bash/sh/ash), or an ephemeral debug container | available |
@@ -38,6 +39,7 @@ Examples:
 
 ```text
 kubekaze status -A
+kubekaze ls
 kubekaze why deploy/api
 kubekaze why node            # every node, only problems are shown
 kubekaze why node/worker-3

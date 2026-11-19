@@ -22,6 +22,7 @@
 ### 1. 장애 대응 (Triage)
 
 - `status`: 네임스페이스/클러스터에서 **비정상인 것만** 표시합니다(CrashLoopBackOff, Pending, ImagePullBackOff, 실패한 Job, NotReady 노드, 가득 차가는 PVC, 만료 임박 인증서). 정상은 숨깁니다.
+- `ls [kind]`: 네임스페이스에 무엇이 있는지 한 화면으로 보여줍니다(준비/원하는 수가 있는 워크로드, Job, Service, Ingress/Route, PVC, ConfigMap·Secret 이름). 비정상이 먼저 나옵니다. Secret은 이름만 표시하고 값은 절대 보여주지 않습니다.
 - `why <kind>/<name>`: 한 오브젝트에 대한 상관 분석 타임라인 하나. 현재 상태, 이벤트, 직전 종료 사유(OOMKilled, exit code), 이전 컨테이너 로그 끝부분, owner 체인(Pod → ReplicaSet → Deployment), 최근 변경을 보여주고, 규칙 기반으로 순위를 매긴 **의심 원인**으로 마무리합니다.
 - `events`: `kubectl get events`가 기본으로 해주지 않는, 실제로 필요한 방식으로 정렬한 이벤트.
   - `events -A`(전체 네임스페이스) 또는 `events -n a,b`(여러 개). 기본 정렬은 마지막 발생 시각 기준이며 최신이 맨 아래에 와서 터미널 하단에 가장 최근 문제가 보입니다.
@@ -71,7 +72,7 @@
 
 ## MVP 범위
 
-`status`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, `ns`. 나머지(`changes`, fan-out, 규칙 팩, AI)는 이후 마이너 릴리즈에서 추가합니다.
+`status`, `ls`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, `ns`. 나머지(`changes`, fan-out, 규칙 팩, AI)는 이후 마이너 릴리즈에서 추가합니다.
 
 ## 지원 플랫폼
 
