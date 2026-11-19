@@ -6,6 +6,10 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-19
+
+First release.
+
 ### Added
 - CLI with `status`, `why`, `events`, `sh`, `logs`, `rm`, `ctx` and `ns` commands, built on client-go and the user's kubeconfig.
 - `status`: unhealthy-only view with exit code 3 when problems exist.
@@ -18,5 +22,3 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 - Terminal escape-sequence sanitising of cluster-provided text.
 - Build and release setup: GoReleaser (linux/macOS/windows x amd64/arm64), CI matrix, govulncheck, Dependabot; GitHub Actions pinned by commit SHA.
 - Project concept and design docs, English and Korean README, security policy, Apache-2.0 license and NOTICE.
-
-No release has been published yet.

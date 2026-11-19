@@ -14,7 +14,7 @@ English | [한국어](RELEASING.ko.md)
 
 1. Merge to `main` with CI green.
 2. Update `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com) format).
-3. Push an annotated, signed tag: `git tag -s v0.2.0 -m "v0.2.0" && git push origin v0.2.0`.
+3. Push an annotated tag (signed with `-s` if you have a signing key): `git tag -a v0.2.0 -m "v0.2.0" && git push origin v0.2.0`. Release artifacts are signed by the workflow itself (cosign, keyless).
 4. GitHub Actions runs GoReleaser: builds linux/darwin/windows × amd64/arm64 (`.tar.gz` for Linux/macOS, `.zip` for Windows), creates archives, checksums, SBOM, cosign signature, provenance, and the GitHub Release.
 
 ## Distribution channels

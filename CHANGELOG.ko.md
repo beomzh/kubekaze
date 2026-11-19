@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-19
+
+첫 릴리즈입니다.
+
 ### 추가
 - client-go와 사용자의 kubeconfig 기반 CLI: `status`, `why`, `events`, `sh`, `logs`, `rm`, `ctx`, `ns` 명령.
 - `status`: 비정상인 것만 표시하며 문제가 있으면 종료 코드 3.
@@ -18,5 +22,3 @@
 - 클러스터가 제공한 문자열의 터미널 이스케이프 시퀀스 제거.
 - 빌드·릴리즈 설정: GoReleaser(linux/macOS/windows x amd64/arm64), CI 매트릭스, govulncheck, Dependabot, 커밋 SHA로 고정한 GitHub Actions.
 - 프로젝트 컨셉·설계 문서, 영어/한글 README, 보안 정책, Apache-2.0 라이선스와 NOTICE.
-
-게시된 릴리즈는 아직 없습니다.
