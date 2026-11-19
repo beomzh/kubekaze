@@ -44,7 +44,7 @@ kubekaze events -A --summary
 kubekaze rm pods -A --status Evicted --dry-run
 ```
 
-Exit codes: `0` ok, `1` error, `3` problems found (`status`, `why`). For `sh`, the remote command's exit code is passed through.
+Exit codes: `0` ok, `1` error, `2` wrong command, flag or argument, `3` problems found (`status`, `why`). For `sh`, the remote command's exit code is passed through.
 
 Global flags: `--kubeconfig`, `--context`, `-n/--namespace`, `-A/--all-namespaces`, `-o text|json`.
 
@@ -61,6 +61,15 @@ make build        # produces ./bin/kubekaze
 ```
 
 Release process and verification: [docs/RELEASING.md](docs/RELEASING.md). Homebrew and krew packages are planned.
+
+## Shell completion
+
+```bash
+kubekaze completion install      # detects bash, zsh or fish from $SHELL and writes one file in your home directory
+kubekaze completion bash         # or print the script: bash, zsh, fish, powershell
+```
+
+Completes commands, flags, contexts, namespaces, pods and workloads (`deploy/...`), looked up live from the cluster you point at. Mistyped commands and flags get a "Did you mean" hint, and every command has examples in `--help`.
 
 ## Works with
 

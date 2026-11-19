@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -27,6 +28,7 @@ type app struct {
 
 	output      string
 	interactive bool // stdin and stdout are terminals
+	parsed      bool // arguments and flags were accepted
 }
 
 // Execute runs the CLI and returns the process exit code.
@@ -40,29 +42,42 @@ func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	if err := root.ExecuteContext(ctx); err != nil {
-		if errors.Is(err, ui.ErrCancelled) {
-			return 130
-		}
-		var ec exitCodeError
-		if errors.As(err, &ec) {
-			return ec.code
-		}
-		fmt.Fprintln(errOut, a.pal.Red("error:"), term.SafeText(err.Error()))
-		return 1
+	cmd, err := root.ExecuteContextC(ctx)
+	if err == nil {
+		return 0
 	}
-	return 0
+	if errors.Is(err, ui.ErrCancelled) {
+		return 130
+	}
+	var ec exitCodeError
+	if errors.As(err, &ec) {
+		return ec.code
+	}
+	fmt.Fprintln(errOut, a.pal.Red("error:"), term.SafeText(strings.TrimRight(err.Error(), "\n")))
+	if !a.parsed {
+		// The command line itself was wrong (unknown command or flag, wrong
+		// number of arguments): point to the right usage.
+		fmt.Fprintln(errOut)
+		fmt.Fprintln(errOut, term.SafeText(usageHint(cmd)))
+		return exitUsage
+	}
+	return 1
 }
 
 func (a *app) newRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "kubekaze",
-		Short:         "Terminal-first Kubernetes companion: what is wrong, and why",
-		Long:          "kubekaze finds out what is wrong in your cluster and why, in one command.\nIt reads your existing kubeconfig and is read-only unless a command says otherwise.",
+		Use:   "kubekaze",
+		Short: "Terminal-first Kubernetes companion: what is wrong, and why",
+		Long: `kubekaze finds out what is wrong in your cluster and why, in one command.
+It reads your existing kubeconfig and is read-only unless a command says otherwise
+(sh, rm, ctx and ns change things and say so).
+
+Run 'kubekaze <command> --help' for details and examples.`,
 		Version:       version.String(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			a.parsed = true
 			if a.output != "text" && a.output != "json" {
 				return fmt.Errorf("invalid --output %q (want text or json)", a.output)
 			}
@@ -76,6 +91,12 @@ func (a *app) newRoot() *cobra.Command {
 	f.StringVarP(&a.output, "output", "o", "text", "output format: text|json")
 	f.BoolVarP(&a.opts.AllNamespaces, "all-namespaces", "A", false, "all namespaces")
 
-	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd(), a.newStatusCmd(), a.newWhyCmd(), a.newLogsCmd())
+	root.AddCommand(a.newCtxCmd(), a.newNsCmd(), a.newEventsCmd(), a.newRmCmd(), a.newShCmd(), a.newStatusCmd(), a.newWhyCmd(), a.newLogsCmd(), a.newVersionCmd())
+	root.AddCommand(a.newCompletionCmd(root))
+	root.CompletionOptions.DisableDefaultCmd = true
+	root.SetFlagErrorFunc(a.flagError)
+	root.SuggestionsMinimumDistance = 2
+	applyHelp(root)
+	a.registerCompletions(root)
 	return root
 }
