@@ -58,6 +58,16 @@ func withAlias(script []byte, shell, alias string) ([]byte, error) {
 	var extra string
 	switch shell {
 	case "bash":
+		// The generated script runs "${words[0]} __complete", i.e. the alias
+		// itself. A shell alias is not available there (and may not even exist
+		// in the shell that loads this), so the lookup would fail silently and
+		// bash would fall back to file names. Ask the real command instead.
+		script = bytes.Replace(script,
+			[]byte(`requestComp="${words[0]} __complete ${args[*]}"`),
+			[]byte(fmt.Sprintf(`local cmd="${words[0]}"
+    [[ $cmd == %s ]] && cmd=kubekaze
+    requestComp="${cmd} __complete ${args[*]}"`, alias)),
+			1)
 		extra = fmt.Sprintf(`
 # alias %[1]s
 if [[ $(type -t compopt) = "builtin" ]]; then

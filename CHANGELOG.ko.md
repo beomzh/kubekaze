@@ -9,6 +9,7 @@
 ## [0.1.2-1] - 2026-11-19 (미배포, 태그 없음, 다음 릴리즈인 0.1.3에 포함 예정)
 
 ### 수정
+- `completion --alias`(bash): `kk`가 셸 alias로도 정의돼 있지 않으면 스크립트가 `kk __complete`를 실행하다 실패해 파일 이름 완성으로 떨어지던 문제를 고쳤습니다. 이제 `kubekaze`를 직접 호출합니다.
 - `why node` / `status`: heartbeat가 몇 분 지난 Ready 노드를 "응답 없음"으로 보고하던 문제를 고쳤습니다. kubelet은 노드 상태를 약 5분마다만 갱신하므로(생존 여부는 Lease로 확인) 기준을 10분으로 늘렸습니다.
 - `why node`: 2시간보다 오래된 경고(OpenShift는 이벤트를 며칠 보관)는 더 이상 원인으로 보지 않고, `ImageGCFailed`의 "container not found" 메시지는 디스크 문제가 아니라 무해한 잡음으로 분류합니다.
 

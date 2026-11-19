@@ -193,6 +193,11 @@ func TestCompletionAlias(t *testing.T) {
 			t.Errorf("%s: alias leaked into the plain script", sh)
 		}
 	}
+	// bash must ask the real command: a shell alias is not visible there.
+	_, bashKK, _ := run("completion", "bash", "--alias", "kk")
+	if !strings.Contains(bashKK, "cmd=kubekaze") || strings.Contains(bashKK, `requestComp="${words[0]} __complete`) {
+		t.Error("bash alias script must not run the alias itself to fetch completions")
+	}
 	_, zsh, _ := run("completion", "zsh", "--alias", "kk")
 	if !strings.HasPrefix(zsh, "#compdef kubekaze kk\n") {
 		t.Errorf("zsh header should list the alias: %q", zsh[:40])
