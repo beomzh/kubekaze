@@ -20,13 +20,13 @@ English | [한국어](README.ko.md)
 
 | Command | What it does | State |
 |---------|--------------|-------|
-| `kubekaze status` | Only what is unhealthy (pods, workloads, nodes, jobs, PVCs). Exit code 3 when problems exist | available |
-| `kubekaze why <pod\|deploy/x>` | Timeline, evidence and ranked suspected causes | available |
+| `kubekaze status` | Only what is unhealthy: nodes (always checked), workloads, pods, jobs, PVCs. Exit code 3 when problems exist | available |
+| `kubekaze why <pod\|deploy/x\|node/x>` | Timeline, evidence and ranked suspected causes for a pod, a workload or a node | available |
 | `kubekaze events -A --type Warning` | Events sorted by time across namespaces; `--summary` per namespace | available |
 | `kubekaze sh <pod\|deploy/x>` | Finds a working shell (bash/sh/ash), or an ephemeral debug container | available |
 | `kubekaze logs <pod\|deploy/x>` | Multi-pod tail; previous run of restarted containers included | available |
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | Bulk delete with preview and confirmation | available |
-| `kubekaze ctx [name\|-]` | Switch context | available |
+| `kubekaze ctx [name\|-]` | Switch context; groups `oc` per-namespace contexts; warns right away about an expired login | available |
 | `kubekaze ns [name\|-]` | Switch namespace; projects on OpenShift | available |
 | `kubekaze changes --since 1h` | What changed just before it broke | planned |
 | `--all-contexts` / `--context 'prod-*'` | Run across several clusters | planned |
@@ -37,6 +37,7 @@ Examples:
 ```text
 kubekaze status -A
 kubekaze why deploy/api
+kubekaze why node/worker-3
 kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
@@ -69,7 +70,9 @@ kubekaze completion install      # detects bash, zsh or fish from $SHELL and wri
 kubekaze completion bash         # or print the script: bash, zsh, fish, powershell
 ```
 
-Completes commands, flags, contexts, namespaces, pods and workloads (`deploy/...`), looked up live from the cluster you point at. Mistyped commands and flags get a "Did you mean" hint, and every command has examples in `--help`.
+Using `alias kk=kubekaze`? Add `--alias kk` (`kubekaze completion install --alias kk`), because shells bind completion to the command name.
+
+Completes commands, flags, contexts, namespaces, pods and workloads (`deploy/...`), looked up live from the cluster you point at. Mistyped commands and flags get a "Did you mean" hint, and every command has a detailed description and examples in `--help` (also `kubekaze --help` for exit codes and environment variables).
 
 ## Works with
 

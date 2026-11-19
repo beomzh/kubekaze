@@ -181,3 +181,66 @@ func (m *Manager) UseNamespace(ns string) (string, string, error) {
 	m.saveState(st)
 	return cfg.CurrentContext, ns, nil
 }
+
+// ContextInfo describes one kubeconfig context.
+type ContextInfo struct {
+	Name      string
+	Cluster   string
+	User      string
+	Namespace string
+}
+
+// ContextInfos returns all contexts sorted by name, and the current one.
+func (m *Manager) ContextInfos() ([]ContextInfo, string, error) {
+	cfg, err := m.load()
+	if err != nil {
+		return nil, "", err
+	}
+	out := make([]ContextInfo, 0, len(cfg.Contexts))
+	for name, c := range cfg.Contexts {
+		out = append(out, ContextInfo{Name: name, Cluster: c.Cluster, User: c.AuthInfo, Namespace: c.Namespace})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, cfg.CurrentContext, nil
+}
+
+// Group is a set of contexts that share a cluster and a user, typically
+// differing only by namespace (this is what "oc project" creates:
+// <namespace>/<cluster>/<user>).
+type Group struct {
+	Cluster, User string
+	Rep           ContextInfo // the context to switch to when the group is chosen
+	Count         int
+	Current       bool
+}
+
+// GroupContexts collapses contexts by cluster and user. The representative is
+// the current context if it is in the group, else one in the "default"
+// namespace (or without a namespace), else the first by name.
+func GroupContexts(infos []ContextInfo, current string) []Group {
+	type key struct{ cluster, user string }
+	idx := map[key]int{}
+	var groups []Group
+	for _, c := range infos {
+		k := key{c.Cluster, c.User}
+		i, ok := idx[k]
+		if !ok {
+			idx[k] = len(groups)
+			groups = append(groups, Group{Cluster: c.Cluster, User: c.User, Rep: c, Count: 1, Current: c.Name == current})
+			continue
+		}
+		g := &groups[i]
+		g.Count++
+		switch {
+		case c.Name == current:
+			g.Rep, g.Current = c, true
+		case g.Current:
+			// keep the current context as representative
+		case isDefaultNS(c.Namespace) && !isDefaultNS(g.Rep.Namespace):
+			g.Rep = c
+		}
+	}
+	return groups
+}
+
+func isDefaultNS(ns string) bool { return ns == "" || ns == "default" }

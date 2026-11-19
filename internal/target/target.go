@@ -26,6 +26,7 @@ var workloadKinds = map[string]string{
 	"rs": "replicaset", "replicaset": "replicaset", "replicasets": "replicaset",
 	"job": "job", "jobs": "job",
 	"pod": "pod", "pods": "pod", "po": "pod",
+	"node": "node", "nodes": "node", "no": "node",
 }
 
 // ParseRef splits "kind/name" into a canonical kind and name. A bare name

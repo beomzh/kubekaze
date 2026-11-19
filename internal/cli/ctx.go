@@ -1,8 +1,8 @@
 package cli
 
 import (
+	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,7 +13,7 @@ import (
 )
 
 func (a *app) newCtxCmd() *cobra.Command {
-	var current bool
+	var current, noCheck, all bool
 	cmd := &cobra.Command{
 		Use:   "ctx [name|-]",
 		Short: "List or switch the kubeconfig context",
@@ -38,21 +38,11 @@ func (a *app) newCtxCmd() *cobra.Command {
 			if len(args) == 1 {
 				target = args[0]
 			} else if term.IsTerminal(a.in) && term.IsTerminal(a.out) {
-				labels := make([]string, len(names))
-				for i, n := range names {
-					labels[i] = n
-					if n == cur {
-						labels[i] = n + "  (current)"
-					}
-					if kube.IsProduction(n) {
-						labels[i] += "  [prod]"
-					}
-				}
-				picked, err := ui.Pick(labels, "context")
+				picked, err := a.pickContext(m, names, cur, all)
 				if err != nil {
 					return err
 				}
-				target = strings.Fields(picked)[0]
+				target = picked
 			} else {
 				for _, n := range names {
 					mark := "  "
@@ -71,9 +61,86 @@ func (a *app) newCtxCmd() *cobra.Command {
 			if kube.IsProduction(now) {
 				fmt.Fprintln(a.err, a.pal.Red("warning:"), "this looks like a production context")
 			}
+			if !noCheck {
+				a.checkContext(cmd.Context())
+			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVarP(&current, "current", "c", false, "print the current context")
+	cmd.Flags().BoolVar(&all, "all", false, "in the picker, list every context instead of grouping by cluster and user")
+	cmd.Flags().BoolVar(&noCheck, "no-check", false, "do not test the connection and login after switching")
 	return cmd
+}
+
+// checkContext tells the user right after a switch when the new context does
+// not work (expired login, VPN down), instead of at the first failing command.
+func (a *app) checkContext(ctx context.Context) {
+	o := kube.Options{Kubeconfig: a.opts.Kubeconfig}
+	cfg, err := o.REST()
+	if err == nil {
+		err = kube.Check(ctx, cfg)
+	}
+	if err != nil {
+		fmt.Fprintln(a.err, a.pal.Yellow("warning:"), term.SafeText(err.Error()))
+		return
+	}
+	fmt.Fprintln(a.err, a.pal.Dim("API server reachable, login accepted."))
+}
+
+// pickContext shows the interactive picker. When several contexts share a
+// cluster and user (what "oc project" creates, one per namespace) they are
+// collapsed into one row, because the namespace is chosen with "kubekaze ns".
+func (a *app) pickContext(m *kubeconfig.Manager, names []string, cur string, all bool) (string, error) {
+	infos, _, err := m.ContextInfos()
+	if err != nil {
+		return "", err
+	}
+	groups := kubeconfig.GroupContexts(infos, cur)
+	if all || len(groups) == len(infos) {
+		labels := make([]string, len(names))
+		byLabel := map[string]string{}
+		for i, n := range names {
+			labels[i] = term.SafeText(n)
+			if n == cur {
+				labels[i] += "  (current)"
+			}
+			if kube.IsProduction(n) {
+				labels[i] += "  [prod]"
+			}
+			byLabel[labels[i]] = n
+		}
+		picked, err := ui.Pick(labels, "context")
+		if err != nil {
+			return "", err
+		}
+		return byLabel[picked], nil
+	}
+	uw, cw := 0, 0
+	for _, g := range groups {
+		uw, cw = max(uw, len(g.User)), max(cw, len(g.Cluster))
+	}
+	labels := make([]string, len(groups))
+	byLabel := map[string]string{}
+	for i, g := range groups {
+		l := fmt.Sprintf("%-*s  %-*s", uw, term.SafeText(g.User), cw, term.SafeText(g.Cluster))
+		if g.Count > 1 {
+			l += fmt.Sprintf("  (%d namespaces)", g.Count)
+		} else if g.Rep.Namespace != "" {
+			l += "  ns=" + term.SafeText(g.Rep.Namespace)
+		}
+		if g.Current {
+			l += "  (current)"
+		}
+		if kube.IsProduction(g.Rep.Name) || kube.IsProduction(g.Cluster) {
+			l += "  [prod]"
+		}
+		labels[i] = l
+		byLabel[l] = g.Rep.Name
+	}
+	picked, err := ui.Pick(labels, "user / cluster  (use ns to change namespace; --all lists every context)")
+	if err != nil {
+		return "", err
+	}
+	return byLabel[picked], nil
 }

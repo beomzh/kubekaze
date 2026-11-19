@@ -87,6 +87,9 @@ func (a *app) runWhy(ctx context.Context, ref string, f whyFlags) error {
 	if err != nil {
 		return err
 	}
+	if kind == "node" {
+		return a.whyNode(ctx, cs, name)
+	}
 	var pods []corev1.Pod
 	if kind == "pod" {
 		p, err := cs.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})

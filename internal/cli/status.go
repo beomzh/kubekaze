@@ -92,14 +92,20 @@ func (a *app) collect(ctx context.Context, cs kubernetes.Interface, ns string, a
 		}
 		return err
 	})
-	if all {
-		run("nodes", func() error {
-			l, err := cs.CoreV1().Nodes().List(ctx, lo)
-			if err == nil {
-				in.Nodes = l.Items
-			}
-			return err
-		})
+	// Nodes are cluster-wide, so they are checked in every scope. Users who may
+	// not list nodes (typical on OpenShift) are skipped quietly unless -A was asked.
+	if err := func() error {
+		l, err := cs.CoreV1().Nodes().List(ctx, lo)
+		if err == nil {
+			in.Nodes = l.Items
+		}
+		return err
+	}(); err != nil && (all || !apierrors.IsForbidden(err)) {
+		if apierrors.IsForbidden(err) {
+			skipped = append(skipped, "nodes (forbidden)")
+		} else {
+			skipped = append(skipped, fmt.Sprintf("nodes (%v)", err))
+		}
 	}
 	return in, skipped
 }

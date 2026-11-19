@@ -20,13 +20,13 @@
 
 | 명령 | 기능 | 상태 |
 |------|------|------|
-| `kubekaze status` | 비정상인 것만 표시(파드, 워크로드, 노드, Job, PVC). 문제가 있으면 종료 코드 3 | 사용 가능 |
-| `kubekaze why <pod\|deploy/x>` | 타임라인, 근거, 순위가 매겨진 의심 원인 | 사용 가능 |
+| `kubekaze status` | 비정상인 것만 표시: 노드(항상 점검), 워크로드, 파드, Job, PVC. 문제가 있으면 종료 코드 3 | 사용 가능 |
+| `kubekaze why <pod\|deploy/x\|node/x>` | 파드, 워크로드, 노드에 대한 타임라인, 근거, 순위가 매겨진 의심 원인 | 사용 가능 |
 | `kubekaze events -A --type Warning` | 전체 네임스페이스 이벤트를 시간순 정렬, `--summary`는 네임스페이스별 요약 | 사용 가능 |
 | `kubekaze sh <pod\|deploy/x>` | 동작하는 셸(bash/sh/ash)을 찾거나 임시 디버그 컨테이너 사용 | 사용 가능 |
 | `kubekaze logs <pod\|deploy/x>` | 멀티 파드 tail, 재시작한 컨테이너의 이전 로그 포함 | 사용 가능 |
 | `kubekaze rm pods --status CrashLoopBackOff,Evicted` | 미리보기와 확인 후 일괄 삭제 | 사용 가능 |
-| `kubekaze ctx [name\|-]` | 컨텍스트 전환 | 사용 가능 |
+| `kubekaze ctx [name\|-]` | 컨텍스트 전환. `oc`가 만드는 네임스페이스별 컨텍스트를 묶어 보여주고, 만료된 로그인을 바로 경고 | 사용 가능 |
 | `kubekaze ns [name\|-]` | 네임스페이스 전환, OpenShift는 프로젝트 | 사용 가능 |
 | `kubekaze changes --since 1h` | 깨지기 직전에 무엇이 바뀌었나 | 계획 |
 | `--all-contexts` / `--context 'prod-*'` | 여러 클러스터에 동시에 실행 | 계획 |
@@ -37,6 +37,7 @@
 ```text
 kubekaze status -A
 kubekaze why deploy/api
+kubekaze why node/worker-3
 kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
@@ -69,7 +70,9 @@ kubekaze completion install      # $SHELL에서 bash, zsh, fish를 감지해 홈
 kubekaze completion bash         # 또는 스크립트 출력: bash, zsh, fish, powershell
 ```
 
-명령, 플래그, 컨텍스트, 네임스페이스, 파드, 워크로드(`deploy/...`)를 완성하며 이름은 연결된 클러스터에서 실시간으로 가져옵니다. 명령이나 플래그를 잘못 입력하면 "Did you mean" 힌트를 보여주고, 모든 명령의 `--help`에 예시가 있습니다.
+`alias kk=kubekaze`를 쓰신다면 `--alias kk`를 붙이세요(`kubekaze completion install --alias kk`). 셸은 자동완성을 명령 이름에 묶기 때문입니다.
+
+명령, 플래그, 컨텍스트, 네임스페이스, 파드, 워크로드(`deploy/...`)를 완성하며 이름은 연결된 클러스터에서 실시간으로 가져옵니다. 명령이나 플래그를 잘못 입력하면 "Did you mean" 힌트를 보여주고, 모든 명령의 `--help`에 상세 설명과 예시가 있습니다(종료 코드와 환경 변수는 `kubekaze --help`).
 
 ## 지원 환경
 

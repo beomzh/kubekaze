@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -21,7 +22,7 @@ import (
 
 var shells = []string{"bash", "zsh", "fish", "powershell"}
 
-func genCompletion(root *cobra.Command, shell string) ([]byte, error) {
+func genCompletion(root *cobra.Command, shell, alias string) ([]byte, error) {
 	var b bytes.Buffer
 	var err error
 	switch shell {
@@ -36,7 +37,44 @@ func genCompletion(root *cobra.Command, shell string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported shell %q (supported: %s)", shell, strings.Join(shells, ", "))
 	}
-	return b.Bytes(), err
+	if err != nil {
+		return nil, err
+	}
+	return withAlias(b.Bytes(), shell, alias)
+}
+
+var aliasName = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+// withAlias makes the completion work for a shell alias such as
+// alias kk=kubekaze. Shells do not do this on their own: completion is bound to
+// the command name, not to what an alias expands to.
+func withAlias(script []byte, shell, alias string) ([]byte, error) {
+	if alias == "" {
+		return script, nil
+	}
+	if !aliasName.MatchString(alias) {
+		return nil, fmt.Errorf("invalid alias %q (letters, digits, '_', '-' and '.' only)", alias)
+	}
+	var extra string
+	switch shell {
+	case "bash":
+		extra = fmt.Sprintf(`
+# alias %[1]s
+if [[ $(type -t compopt) = "builtin" ]]; then
+    complete -o default -F __start_kubekaze %[1]s
+else
+    complete -o default -o nospace -F __start_kubekaze %[1]s
+fi
+`, alias)
+	case "zsh":
+		script = bytes.Replace(script, []byte("#compdef kubekaze\n"), []byte("#compdef kubekaze "+alias+"\n"), 1)
+		extra = fmt.Sprintf("\n# alias %[1]s\n(( $+functions[compdef] )) && compdef _kubekaze %[1]s\n", alias)
+	case "fish":
+		extra = fmt.Sprintf("\n# alias %[1]s\ncomplete -c %[1]s -w kubekaze\n", alias)
+	case "powershell":
+		extra = fmt.Sprintf("\n# alias %[1]s\nRegister-ArgumentCompleter -CommandName '%[1]s' -ScriptBlock ${__kubekazeCompleterBlock}\n", alias)
+	}
+	return append(script, extra...), nil
 }
 
 func (a *app) newCompletionCmd(root *cobra.Command) *cobra.Command {
@@ -56,6 +94,12 @@ Or load it yourself:
   fish        kubekaze completion fish | source
   powershell  kubekaze completion powershell | Out-String | Invoke-Expression
 
+Using an alias (alias kk=kubekaze)? Shells bind completion to the command name,
+so the alias needs to be named explicitly:
+
+  source <(kubekaze completion bash --alias kk)
+  kubekaze completion install --alias kk
+
 Pod, namespace and context names are looked up live from the cluster you are
 pointed at, so completion needs a working kubeconfig (it stays quiet if not).`,
 		Args: cobra.NoArgs,
@@ -63,21 +107,33 @@ pointed at, so completion needs a working kubeconfig (it stays quiet if not).`,
 	}
 	for _, sh := range shells {
 		sh := sh
-		cmd.AddCommand(&cobra.Command{
+		var alias string
+		sc := &cobra.Command{
 			Use:   sh,
 			Short: "Print the " + sh + " completion script",
-			Args:  cobra.NoArgs,
+			Long: fmt.Sprintf(`Print the %s completion script on standard output.
+
+If you use a shell alias for kubekaze, completion does not follow the alias on
+its own. Name the alias with --alias and it is wired up too:
+
+  alias kk=kubekaze
+  %s`, sh, aliasLoadLine(sh)),
+			Example: aliasExample(sh),
+			Args:    cobra.NoArgs,
 			RunE: func(*cobra.Command, []string) error {
-				b, err := genCompletion(root, sh)
+				b, err := genCompletion(root, sh, alias)
 				if err != nil {
 					return err
 				}
 				_, err = a.out.Write(b)
 				return err
 			},
-		})
+		}
+		sc.Flags().StringVar(&alias, "alias", "", "also enable completion for this alias, e.g. kk")
+		cmd.AddCommand(sc)
 	}
 	var force bool
+	var installAlias string
 	install := &cobra.Command{
 		Use:   "install [bash|zsh|fish|powershell]",
 		Short: "Install tab completion for your shell",
@@ -85,8 +141,14 @@ pointed at, so completion needs a working kubeconfig (it stays quiet if not).`,
 anything, is left to do. The shell is detected from $SHELL unless given.
 Nothing outside your home directory is touched, and an existing file that does
 not look like a kubekaze completion is left alone unless --force is given.`,
-		Example: `  kubekaze completion install
-  kubekaze completion install zsh`,
+		Example: `  # detect the shell and install
+  kubekaze completion install
+
+  # a specific shell
+  kubekaze completion install zsh
+
+  # you use alias kk=kubekaze: make completion work for kk too
+  kubekaze completion install --alias kk`,
 		Args:      cobra.MaximumNArgs(1),
 		ValidArgs: shells,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -103,7 +165,7 @@ not look like a kubekaze completion is left alone unless --force is given.`,
 			}
 			res, err := installCompletion(root, sh, dirs{
 				home: home, dataHome: os.Getenv("XDG_DATA_HOME"), configHome: os.Getenv("XDG_CONFIG_HOME"),
-			}, force)
+			}, force, installAlias)
 			if err != nil {
 				return err
 			}
@@ -114,6 +176,7 @@ not look like a kubekaze completion is left alone unless --force is given.`,
 			return nil
 		},
 	}
+	install.Flags().StringVar(&installAlias, "alias", "", "also enable completion for this shell alias, e.g. kk")
 	install.Flags().BoolVar(&force, "force", false, "overwrite an existing file that is not a kubekaze completion")
 	cmd.AddCommand(install)
 	return cmd
@@ -135,7 +198,7 @@ type installResult struct{ path, note string }
 
 // installCompletion writes the completion script for shell below the user's
 // directories. It is separate from the command so that it can be tested.
-func installCompletion(root *cobra.Command, shell string, d dirs, force bool) (installResult, error) {
+func installCompletion(root *cobra.Command, shell string, d dirs, force bool, alias string) (installResult, error) {
 	if shell == "" {
 		return installResult{}, fmt.Errorf("could not detect your shell; run: kubekaze completion install <%s>", strings.Join(shells, "|"))
 	}
@@ -163,11 +226,15 @@ func installCompletion(root *cobra.Command, shell string, d dirs, force bool) (i
 		path = filepath.Join(conf, "fish", "completions", "kubekaze.fish")
 		note = "Fish loads it automatically; open a new shell."
 	case "powershell":
-		return installResult{note: "PowerShell has no standard completion directory. Add this line to your profile ($PROFILE):\n\n  kubekaze completion powershell | Out-String | Invoke-Expression"}, nil
+		line := "kubekaze completion powershell"
+		if alias != "" {
+			line += " --alias " + alias
+		}
+		return installResult{note: "PowerShell has no standard completion directory. Add this line to your profile ($PROFILE):\n\n  " + line + " | Out-String | Invoke-Expression"}, nil
 	default:
 		return installResult{}, fmt.Errorf("unsupported shell %q (supported: %s)", shell, strings.Join(shells, ", "))
 	}
-	script, err := genCompletion(root, shell)
+	script, err := genCompletion(root, shell, alias)
 	if err != nil {
 		return installResult{}, err
 	}
@@ -383,4 +450,21 @@ func (a *app) newVersionCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Run:   func(*cobra.Command, []string) { fmt.Fprintf(a.out, "kubekaze %s\n", version.String()) },
 	}
+}
+
+func aliasLoadLine(shell string) string {
+	switch shell {
+	case "bash":
+		return "source <(kubekaze completion bash --alias kk)"
+	case "zsh":
+		return "source <(kubekaze completion zsh --alias kk)"
+	case "fish":
+		return "kubekaze completion fish --alias kk | source"
+	}
+	return "kubekaze completion powershell --alias kk | Out-String | Invoke-Expression"
+}
+
+func aliasExample(shell string) string {
+	return "  # without an alias\n  " + strings.Replace(aliasLoadLine(shell), " --alias kk", "", 1) +
+		"\n\n  # with: alias kk=kubekaze\n  " + aliasLoadLine(shell)
 }

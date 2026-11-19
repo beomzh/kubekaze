@@ -115,3 +115,35 @@ func TestRef(t *testing.T) {
 		t.Errorf("Ref() = %s", got)
 	}
 }
+
+func TestNodeDetails(t *testing.T) {
+	hb := func(ago time.Duration) metav1.Time { return metav1.NewTime(now.Add(-ago)) }
+	in := Input{Now: now, Nodes: []corev1.Node{
+		{ObjectMeta: meta("", "notready", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+			{Type: corev1.NodeReady, Status: corev1.ConditionFalse, Reason: "KubeletNotReady", Message: "container runtime network not ready", LastHeartbeatTime: hb(5 * time.Second)}}}},
+		{ObjectMeta: meta("", "gone", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+			{Type: corev1.NodeReady, Status: corev1.ConditionUnknown, Reason: "NodeStatusUnknown", Message: "Kubelet stopped posting node status.", LastHeartbeatTime: hb(10 * time.Minute)}}}},
+		{ObjectMeta: meta("", "silent", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+			{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb(6 * time.Minute)}}}},
+		{ObjectMeta: meta("", "cordoned", 600), Spec: corev1.NodeSpec{Unschedulable: true}, Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+			{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb(5 * time.Second)}}}},
+		{ObjectMeta: meta("", "fine", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+			{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb(5 * time.Second)}}}},
+	}}
+	got := Analyze(in)
+	if f := find(got, "Node", "notready"); f == nil || f.Status != "NotReady" || f.Detail != "KubeletNotReady: container runtime network not ready" {
+		t.Errorf("notready: %+v", f)
+	}
+	if f := find(got, "Node", "gone"); f == nil || f.Status != "Unknown" || f.Severity != Critical {
+		t.Errorf("gone: %+v", f)
+	}
+	if f := find(got, "Node", "silent"); f == nil || f.Status != "Unknown" || f.Detail == "" {
+		t.Errorf("a stale heartbeat must be reported even if Ready=True: %+v", f)
+	}
+	if f := find(got, "Node", "cordoned"); f == nil || f.Status != "SchedulingDisabled" {
+		t.Errorf("cordoned: %+v", f)
+	}
+	if find(got, "Node", "fine") != nil {
+		t.Error("healthy node must not be reported")
+	}
+}
