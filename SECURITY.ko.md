@@ -41,4 +41,18 @@
 
 ## 릴리즈 검증 방법
 
-각 버전의 릴리즈 노트에 체크섬 + `cosign verify-blob` 절차를 추가합니다.
+각 릴리즈는 `checksums.txt`와 keyless cosign 번들 `checksums.txt.sigstore.json`을 게시합니다. 사용하는 플랫폼의 압축 파일과 함께 받은 뒤 아래를 실행하세요(예시는 v0.1.0).
+
+```bash
+# 1. 압축 파일이 체크섬 목록과 일치하는지
+shasum -a 256 -c checksums.txt --ignore-missing      # Linux: sha256sum -c checksums.txt --ignore-missing
+
+# 2. 체크섬 목록이 이 저장소의 릴리즈 워크플로로 서명됐는지
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/beomzh/kubekaze/\.github/workflows/release\.yml@refs/tags/v0\.1\.0$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+```
+
+모든 압축 파일에는 SPDX SBOM(`*.sbom.json`)도 함께 제공됩니다.

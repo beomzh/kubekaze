@@ -41,4 +41,18 @@ Only the latest minor release receives security fixes until 1.0; after 1.0, the 
 
 ## Verifying a release
 
-Instructions will be added to the release notes of each version (checksum + `cosign verify-blob`).
+Each release publishes `checksums.txt` and a keyless cosign bundle `checksums.txt.sigstore.json`. Download them with the archive for your platform (the example uses v0.1.0), then:
+
+```bash
+# 1. the archive matches the checksum list
+shasum -a 256 -c checksums.txt --ignore-missing      # Linux: sha256sum -c checksums.txt --ignore-missing
+
+# 2. the checksum list was signed by this repository's release workflow
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/beomzh/kubekaze/\.github/workflows/release\.yml@refs/tags/v0\.1\.0$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+```
+
+Every archive also has an SPDX SBOM (`*.sbom.json`).
