@@ -44,7 +44,7 @@ kubekaze events -A --summary
 kubekaze rm pods -A --status Evicted --dry-run
 ```
 
-종료 코드: `0` 정상, `1` 오류, `3` 문제 발견(`status`, `why`). `sh`는 원격 명령의 종료 코드를 그대로 전달합니다.
+종료 코드: `0` 정상, `1` 오류, `2` 잘못된 명령·플래그·인자, `3` 문제 발견(`status`, `why`). `sh`는 원격 명령의 종료 코드를 그대로 전달합니다.
 
 공통 플래그: `--kubeconfig`, `--context`, `-n/--namespace`, `-A/--all-namespaces`, `-o text|json`.
 
@@ -61,6 +61,15 @@ make build        # ./bin/kubekaze 생성
 ```
 
 릴리즈 절차와 검증은 [docs/RELEASING.ko.md](docs/RELEASING.ko.md)를 참고하세요. Homebrew와 krew 패키지는 계획 중입니다.
+
+## 셸 자동완성
+
+```bash
+kubekaze completion install      # $SHELL에서 bash, zsh, fish를 감지해 홈 디렉터리에 파일 하나를 씁니다
+kubekaze completion bash         # 또는 스크립트 출력: bash, zsh, fish, powershell
+```
+
+명령, 플래그, 컨텍스트, 네임스페이스, 파드, 워크로드(`deploy/...`)를 완성하며 이름은 연결된 클러스터에서 실시간으로 가져옵니다. 명령이나 플래그를 잘못 입력하면 "Did you mean" 힌트를 보여주고, 모든 명령의 `--help`에 예시가 있습니다.
 
 ## 지원 환경
 

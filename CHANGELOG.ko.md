@@ -19,6 +19,9 @@
 - `logs`: 멀티 파드 tail, 이전 실행 로그 자동 포함, 에러 강조, 시크릿 마스킹.
 - `rm`: 미리보기, UID 조건, 확인, 운영 가드, `--max` 상한이 있는 일괄 파드 삭제.
 - `ctx` / `ns`: 이전 값(`-`)을 지원하는 컨텍스트·네임스페이스 전환, OpenShift 프로젝트.
+- bash, zsh, fish, PowerShell 셸 자동완성(`kubekaze completion`, `kubekaze completion install`): 컨텍스트, 네임스페이스, 파드, 워크로드, 플래그 값을 실시간으로 완성.
+- 그룹으로 나뉜 `--help`와 모든 명령의 예시, 명령·플래그 오타에 대한 "Did you mean" 힌트, 잘못된 명령줄에 대한 종료 코드 2와 사용법 안내.
+- `kubekaze version` 명령.
 - 클러스터가 제공한 문자열의 터미널 이스케이프 시퀀스 제거.
 - 빌드·릴리즈 설정: GoReleaser(linux/macOS/windows x amd64/arm64), CI 매트릭스, govulncheck, Dependabot, 커밋 SHA로 고정한 GitHub Actions.
 - 프로젝트 컨셉·설계 문서, 영어/한글 README, 보안 정책, Apache-2.0 라이선스와 NOTICE.

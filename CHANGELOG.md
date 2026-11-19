@@ -19,6 +19,9 @@ First release.
 - `logs`: multi-pod tail with automatic previous-run logs, error highlighting and secret masking.
 - `rm`: bulk pod deletion with preview, UID preconditions, confirmation, production guard and `--max` cap.
 - `ctx` / `ns`: context and namespace switching with previous (`-`); OpenShift projects.
+- Shell completion for bash, zsh, fish and PowerShell (`kubekaze completion`, `kubekaze completion install`) with live completion of contexts, namespaces, pods, workloads and flag values.
+- Grouped `--help` with examples for every command; "Did you mean" hints for mistyped commands and flags; exit code 2 and a usage line for wrong command lines.
+- `kubekaze version` command.
 - Terminal escape-sequence sanitising of cluster-provided text.
 - Build and release setup: GoReleaser (linux/macOS/windows x amd64/arm64), CI matrix, govulncheck, Dependabot; GitHub Actions pinned by commit SHA.
 - Project concept and design docs, English and Korean README, security policy, Apache-2.0 license and NOTICE.
