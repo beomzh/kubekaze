@@ -14,6 +14,7 @@ import (
 
 	"github.com/beomzh/kubekaze/internal/events"
 	"github.com/beomzh/kubekaze/internal/podstatus"
+	"github.com/beomzh/kubekaze/internal/status"
 	"github.com/beomzh/kubekaze/internal/term"
 	"github.com/beomzh/kubekaze/internal/why"
 )
@@ -49,7 +50,7 @@ func nodeStatus(n *corev1.Node, now time.Time) string {
 		switch c.Status {
 		case corev1.ConditionTrue:
 			st = "Ready"
-			if !c.LastHeartbeatTime.IsZero() && now.Sub(c.LastHeartbeatTime.Time) > 2*time.Minute {
+			if !c.LastHeartbeatTime.IsZero() && now.Sub(c.LastHeartbeatTime.Time) > status.HeartbeatStale {
 				st = "Unknown"
 			}
 		case corev1.ConditionFalse:
@@ -90,16 +91,26 @@ func nodeReportFor(n *corev1.Node, evs []events.Row, pods []corev1.Pod, now time
 	}
 	r.Events = events.Collapse(evs)
 	events.Sort(r.Events, "time", false)
+	var bad []why.NodePod
 	for i := range pods {
 		p := &pods[i]
 		st := podstatus.Of(p)
-		starting := (st == "Pending" || st == "ContainerCreating" || st == "PodInitializing") && now.Sub(p.CreationTimestamp.Time) < 2*time.Minute
+		age := now.Sub(p.CreationTimestamp.Time)
+		starting := (st == "Pending" || st == "ContainerCreating" || st == "PodInitializing") && age < 2*time.Minute
 		if !podstatus.Healthy(p) && !starting {
-			r.BadPods = append(r.BadPods, fmt.Sprintf("%s/%s: %s", p.Namespace, p.Name, st))
+			bad = append(bad, why.NodePod{Namespace: p.Namespace, Name: p.Name, Status: st, Age: age})
 		}
 	}
-	sort.Strings(r.BadPods)
-	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: r.BadPods, Now: now})
+	sort.Slice(bad, func(i, j int) bool {
+		if bad[i].Namespace != bad[j].Namespace {
+			return bad[i].Namespace < bad[j].Namespace
+		}
+		return bad[i].Name < bad[j].Name
+	})
+	for _, b := range bad {
+		r.BadPods = append(r.BadPods, fmt.Sprintf("%s/%s: %s", b.Namespace, b.Name, b.Status))
+	}
+	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: bad, Now: now})
 	r.Healthy = len(r.Causes) == 0
 	return r
 }

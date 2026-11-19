@@ -31,7 +31,7 @@ func TestNodeUnknownAndStale(t *testing.T) {
 	if !strings.Contains(c.Title, "stopped reporting") || !strings.Contains(strings.Join(c.Evidence, " "), "9m") {
 		t.Errorf("unknown: %+v", c)
 	}
-	stale := corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: metav1.NewTime(now.Add(-6 * time.Minute))}
+	stale := corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: metav1.NewTime(now.Add(-12 * time.Minute))}
 	if c := top(t, DiagnoseNode(NodeEvidence{Node: node(stale), Now: now})); !strings.Contains(c.Title, "stopped reporting") {
 		t.Errorf("stale heartbeat: %+v", c)
 	}
@@ -49,8 +49,8 @@ func TestNodePressureEventsAndPods(t *testing.T) {
 	n := node(healthyReady(), corev1.NodeCondition{Type: corev1.NodeDiskPressure, Status: corev1.ConditionTrue, Reason: "KubeletHasDiskPressure", Message: "low on disk"})
 	n.Spec.Taints = []corev1.Taint{{Key: "node.kubernetes.io/disk-pressure", Effect: corev1.TaintEffectNoSchedule}}
 	n.Spec.Unschedulable = true
-	evs := []events.Row{{Type: "Warning", Reason: "ImageGCFailed", Message: "failed to garbage collect", Count: 3}, {Type: "Normal", Reason: "Starting"}}
-	causes := DiagnoseNode(NodeEvidence{Node: n, Events: evs, BadPods: []string{"a/p1: Evicted", "a/p2: Evicted"}, Now: now})
+	evs := []events.Row{{Type: "Warning", Reason: "ImageGCFailed", Message: "failed to garbage collect required amount of images", Count: 3, Last: now.Add(-10 * time.Minute)}, {Type: "Normal", Reason: "Starting"}}
+	causes := DiagnoseNode(NodeEvidence{Node: n, Events: evs, BadPods: []NodePod{{Namespace: "a", Name: "p1", Status: "Evicted"}, {Namespace: "a", Name: "p2", Status: "Evicted"}}, Now: now})
 	titles := ""
 	for _, c := range causes {
 		titles += c.Title + "|"
@@ -72,5 +72,73 @@ func TestCordonDoesNotDuplicateAsTaint(t *testing.T) {
 	causes := DiagnoseNode(NodeEvidence{Node: n, Now: now})
 	if len(causes) != 1 || !strings.Contains(causes[0].Title, "cordoned") {
 		t.Errorf("want only the cordon cause, got %+v", causes)
+	}
+}
+
+func TestNormalHeartbeatAgeIsNotAProblem(t *testing.T) {
+	// Since Kubernetes 1.17 the node status (and its heartbeat time) is written
+	// every ~5 minutes when nothing changes: 4 minutes old is normal.
+	cond := corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionTrue, Reason: "KubeletReady", LastHeartbeatTime: metav1.NewTime(now.Add(-4*time.Minute - 30*time.Second))}
+	if c := DiagnoseNode(NodeEvidence{Node: node(cond), Now: now}); c != nil {
+		t.Errorf("a Ready node with a 4m30s old heartbeat must be healthy, got %+v", c)
+	}
+}
+
+func TestOldEventsDoNotCauseAnything(t *testing.T) {
+	old := []events.Row{{Type: "Warning", Reason: "SystemOOM", Message: "System OOM encountered", Count: 2, Last: now.Add(-15 * 24 * time.Hour)}}
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Events: old, Now: now}); c != nil {
+		t.Errorf("a two week old warning must not flag a healthy node: %+v", c)
+	}
+	recent := []events.Row{{Type: "Warning", Reason: "SystemOOM", Message: "System OOM encountered", Count: 2, Last: now.Add(-10 * time.Minute)}}
+	if c := top(t, DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Events: recent, Now: now})); !strings.Contains(c.Title, "system OOM") {
+		t.Errorf("a recent one must: %+v", c)
+	}
+}
+
+func TestImageGCNotFoundIsLowPriorityNoise(t *testing.T) {
+	msg := `get container status: runtime container status: rpc error: code = NotFound desc = could not find container "73fc": container with ID starting with 73fc not found: ID does not exist`
+	evs := []events.Row{{Type: "Warning", Reason: "ImageGCFailed", Message: msg, Count: 1, Last: now.Add(-5 * time.Minute)}}
+	causes := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Events: evs, Now: now})
+	if len(causes) != 1 || causes[0].Score > 30 || strings.Contains(causes[0].Title, "cannot free") || strings.Contains(causes[0].Hint, "reclaim space") {
+		t.Errorf("a container-not-found GC error is noise, not a disk problem: %+v", causes)
+	}
+}
+
+func TestFailingCNIAgentExplainsStuckPods(t *testing.T) {
+	bad := []NodePod{
+		{Namespace: "openshift-image-registry", Name: "image-pruner-29898720-b8dws", Status: "ContainerCreating", Age: 3 * time.Hour},
+		{Namespace: "openshift-monitoring", Name: "metrics-server-6d76ffbf88-6rntd", Status: "ContainerCreating", Age: 3 * time.Hour},
+		{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-node-gwqdl", Status: "CreateContainerError", Age: 40 * 24 * time.Hour},
+	}
+	causes := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), BadPods: bad, Now: now})
+	c := top(t, causes)
+	if !strings.Contains(c.Title, "network (CNI) agent") || !strings.Contains(strings.Join(c.Evidence, "\n"), "ovnkube-node-gwqdl") ||
+		!strings.Contains(strings.Join(c.Evidence, "\n"), "2 other pod(s)") || !strings.Contains(c.Hint, "kubekaze why ovnkube-node-gwqdl -n openshift-ovn-kubernetes") {
+		t.Errorf("the CNI agent must be the top cause and point at the failing pod: %+v", c)
+	}
+}
+
+func TestStuckContainerCreatingWithoutCNIPod(t *testing.T) {
+	bad := []NodePod{{Namespace: "a", Name: "x", Status: "ContainerCreating", Age: time.Hour}, {Namespace: "a", Name: "y", Status: "ContainerCreating", Age: time.Hour}}
+	c := top(t, DiagnoseNode(NodeEvidence{Node: node(healthyReady()), BadPods: bad, Now: now}))
+	if !strings.Contains(c.Title, "stuck in ContainerCreating") {
+		t.Errorf("%+v", c)
+	}
+	one := bad[:1]
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), BadPods: one, Now: now}); c != nil {
+		t.Errorf("a single slow pod alone is not a node problem: %+v", c)
+	}
+}
+
+func TestCNIPodNamePattern(t *testing.T) {
+	for _, n := range []string{"ovnkube-node-gwqdl", "calico-node-x7k2p", "cilium-abcde", "aws-node-4kq8z", "kube-flannel-ds-9xh2q", "multus-additional-cni-plugins-abcde"} {
+		if !cniPod.MatchString(n) {
+			t.Errorf("%s should be a CNI agent", n)
+		}
+	}
+	for _, n := range []string{"api-7d9f", "node-exporter-abcde", "ovnkube-control-plane-xyz12", "nginx"} {
+		if cniPod.MatchString(n) {
+			t.Errorf("%s must not be treated as a CNI agent", n)
+		}
 	}
 }

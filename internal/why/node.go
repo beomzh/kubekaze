@@ -2,6 +2,7 @@ package why
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -9,16 +10,33 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/beomzh/kubekaze/internal/events"
+	"github.com/beomzh/kubekaze/internal/status"
 )
 
 // NodeEvidence is what DiagnoseNode looks at.
 type NodeEvidence struct {
 	Node   *corev1.Node
 	Events []events.Row // events whose involved object is this node
-	// BadPods describes pods on the node that are not healthy ("ns/name: status").
-	BadPods []string
+	// BadPods are the pods on the node that are not healthy (and not just starting).
+	BadPods []NodePod
 	Now     time.Time
 }
+
+// NodePod is an unhealthy pod running on the node.
+type NodePod struct {
+	Namespace, Name, Status string
+	Age                     time.Duration
+}
+
+func (p NodePod) String() string { return fmt.Sprintf("%s/%s: %s", p.Namespace, p.Name, p.Status) }
+
+// eventWindow is how recent a node event must be to count as a cause. Some
+// distributions (OpenShift) keep events for days; a warning from two weeks ago
+// is history, not a diagnosis of today's problem.
+const eventWindow = 2 * time.Hour
+
+// cniPod matches the node-level network agents of common CNI plugins.
+var cniPod = regexp.MustCompile(`^(ovnkube-node|ovs-node|ovs-.*|calico-node|cilium(-[a-z0-9]+)?|aws-node|azure-cni.*|azure-ip-masq-agent|flannel.*|kube-flannel.*|kube-router.*|antrea-agent|weave-net.*|multus.*|canal.*|sdn(-[a-z0-9]+)?)(-[a-z0-9]{5,})?$`)
 
 // DiagnoseNode returns suspected causes for a node, most likely first. It
 // returns nil when the node looks healthy.
@@ -33,7 +51,7 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 	for _, c := range n.Status.Conditions {
 		switch c.Type {
 		case corev1.NodeReady:
-			stale := c.Status == corev1.ConditionTrue && !c.LastHeartbeatTime.IsZero() && ev.Now.Sub(c.LastHeartbeatTime.Time) > 2*time.Minute
+			stale := c.Status == corev1.ConditionTrue && !c.LastHeartbeatTime.IsZero() && ev.Now.Sub(c.LastHeartbeatTime.Time) > status.HeartbeatStale
 			switch {
 			case c.Status == corev1.ConditionUnknown || stale:
 				hb := "no heartbeat recorded"
@@ -96,11 +114,21 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 		if r.Type != "Warning" {
 			continue
 		}
+		if !r.Last.IsZero() && ev.Now.Sub(r.Last) > eventWindow {
+			continue // history, not today's problem
+		}
 		switch r.Reason {
 		case "SystemOOM":
 			add(Cause{Title: "The kernel killed processes on the node for lack of memory (system OOM)", Score: 86, Evidence: []string{evLine(r)},
 				Hint: "Memory is overcommitted. Check pod memory limits vs requests and node allocatable."})
 		case "ImageGCFailed", "FreeDiskSpaceFailed", "EvictionThresholdMet":
+			low := strings.ToLower(r.Message)
+			if strings.Contains(low, "not found") || strings.Contains(low, "does not exist") || strings.Contains(low, "notfound") {
+				// the runtime lost track of a container that was already gone: a harmless race
+				add(Cause{Title: "The kubelet's image cleanup tripped over a container that no longer exists", Score: 25, Evidence: []string{evLine(r)},
+					Hint: "Usually transient noise between the kubelet and the container runtime. Only worth acting on if it repeats together with disk pressure."})
+				continue
+			}
 			add(Cause{Title: "The kubelet cannot free enough resources", Score: 84, Evidence: []string{evLine(r)}, Hint: "See the disk/memory causes above; reclaim space or capacity."})
 		case "ContainerGCFailed", "KubeletSetupFailed", "FailedNodeAllocatableEnforcement", "InvalidDiskCapacity":
 			add(Cause{Title: "The kubelet reports a node setup problem (" + r.Reason + ")", Score: 70, Evidence: []string{evLine(r)}, Hint: "Check the kubelet log on the node."})
@@ -111,15 +139,44 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 		}
 	}
 
+	// A failing node-level network agent explains pods stuck in ContainerCreating.
+	var cni []NodePod
+	stuck := 0
+	for _, p := range ev.BadPods {
+		if cniPod.MatchString(p.Name) {
+			cni = append(cni, p)
+		}
+		if p.Status == "ContainerCreating" && p.Age > 5*time.Minute {
+			stuck++
+		}
+	}
+	if len(cni) > 0 {
+		evid := []string{}
+		for _, p := range cni {
+			evid = append(evid, p.String())
+		}
+		if stuck > 0 {
+			evid = append(evid, fmt.Sprintf("%d other pod(s) on this node are stuck in ContainerCreating, which is what a broken pod network does", stuck))
+		}
+		add(Cause{Title: "A network (CNI) agent on this node is failing", Score: 89, Evidence: evid,
+			Hint: "Without the CNI agent new pods cannot get a network and stay in ContainerCreating. Start with this pod: kubekaze why " + cni[0].Name + " -n " + cni[0].Namespace})
+	} else if stuck >= 2 {
+		add(Cause{Title: fmt.Sprintf("%d pods have been stuck in ContainerCreating for over 5 minutes", stuck), Score: 60,
+			Evidence: []string{"several pods on the same node cannot start their containers"},
+			Hint:     "A node-level problem: container runtime, CNI, or a volume/storage backend. Check the runtime and kubelet logs on the node."})
+	}
+
 	if len(causes) > 0 && len(ev.BadPods) > 0 {
-		shown := ev.BadPods
-		more := ""
-		if len(shown) > 5 {
-			more = fmt.Sprintf(" (and %d more)", len(shown)-5)
-			shown = shown[:5]
+		shown := make([]string, 0, 5)
+		for i, p := range ev.BadPods {
+			if i == 5 {
+				shown = append(shown, fmt.Sprintf("(and %d more)", len(ev.BadPods)-5))
+				break
+			}
+			shown = append(shown, p.String())
 		}
 		add(Cause{Title: fmt.Sprintf("%d pod(s) on this node are unhealthy", len(ev.BadPods)), Score: 40,
-			Evidence: append(shown, strings.TrimSpace(more)), Hint: "Explain one of them: kubekaze why <pod> -n <namespace>"})
+			Evidence: shown, Hint: "Explain one of them: kubekaze why <pod> -n <namespace>"})
 	}
 
 	sort.SliceStable(causes, func(i, j int) bool { return causes[i].Score > causes[j].Score })

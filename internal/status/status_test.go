@@ -124,7 +124,7 @@ func TestNodeDetails(t *testing.T) {
 		{ObjectMeta: meta("", "gone", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
 			{Type: corev1.NodeReady, Status: corev1.ConditionUnknown, Reason: "NodeStatusUnknown", Message: "Kubelet stopped posting node status.", LastHeartbeatTime: hb(10 * time.Minute)}}}},
 		{ObjectMeta: meta("", "silent", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
-			{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb(6 * time.Minute)}}}},
+			{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb(12 * time.Minute)}}}},
 		{ObjectMeta: meta("", "cordoned", 600), Spec: corev1.NodeSpec{Unschedulable: true}, Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
 			{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb(5 * time.Second)}}}},
 		{ObjectMeta: meta("", "fine", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
@@ -145,5 +145,15 @@ func TestNodeDetails(t *testing.T) {
 	}
 	if find(got, "Node", "fine") != nil {
 		t.Error("healthy node must not be reported")
+	}
+}
+
+func TestHeartbeatBelowFiveMinutesIsNormal(t *testing.T) {
+	// the kubelet only rewrites the node status every ~5 minutes when nothing changes
+	hb := metav1.NewTime(now.Add(-4*time.Minute - 30*time.Second))
+	in := Input{Now: now, Nodes: []corev1.Node{{ObjectMeta: meta("", "n", 600), Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+		{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: hb}}}}}}
+	if got := Analyze(in); len(got) != 0 {
+		t.Errorf("a Ready node with a 4m30s heartbeat must not be reported: %+v", got)
 	}
 }
