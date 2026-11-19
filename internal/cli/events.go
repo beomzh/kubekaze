@@ -16,6 +16,7 @@ import (
 
 	"github.com/beomzh/kubekaze/internal/events"
 	"github.com/beomzh/kubekaze/internal/term"
+	"github.com/beomzh/kubekaze/internal/why"
 )
 
 type eventsFlags struct {
@@ -225,7 +226,7 @@ func (a *app) eventCells(r events.Row, showNS bool, now time.Time) []cell {
 	if r.Type == "Warning" {
 		typeCell.style = a.pal.Yellow
 	}
-	msg := r.Message
+	msg := why.Shorten(r.Message, 240) // full text stays in -o json
 	if r.Count > 1 {
 		span := r.Last.Sub(r.First)
 		if span >= time.Minute {

@@ -150,6 +150,11 @@ func (a *app) runStatus(ctx context.Context) error {
 func (a *app) printFindings(findings []status.Finding, scope string) {
 	if len(findings) == 0 {
 		fmt.Fprintf(a.out, "%s Everything looks healthy in %s.\n", a.pal.Green("OK"), scope)
+		if !a.opts.AllNamespaces {
+			// Only the current namespace (plus nodes) was checked; say so, because
+			// a healthy answer here says nothing about the rest of the cluster.
+			fmt.Fprintln(a.out, a.pal.Dim("Only this namespace and the nodes were checked. Whole cluster: kubekaze status -A"))
+		}
 		return
 	}
 	showNS := a.opts.AllNamespaces

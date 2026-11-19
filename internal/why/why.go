@@ -29,6 +29,9 @@ type Evidence struct {
 	Events []events.Row // events of this pod
 	// LogTail is the last log lines of the failing container (already redacted).
 	LogTail []string
+	// LogContainer is the container LogTail was read from. Log lines are only
+	// quoted as evidence for that container, never for another one.
+	LogContainer string
 	// RolloutAge, when non-zero, is how long ago the owning workload started
 	// its newest rollout.
 	RolloutAge time.Duration
@@ -72,7 +75,7 @@ func Diagnose(ev Evidence) []Cause {
 				add(Cause{
 					Title:    fmt.Sprintf("Container %q exits with an error (exit code %d)", cs.Name, t.ExitCode),
 					Score:    80,
-					Evidence: append([]string{fmt.Sprintf("termination reason: %s, exit code %d", orDash(t.Reason), t.ExitCode)}, tail(ev.LogTail, 3)...),
+					Evidence: append([]string{fmt.Sprintf("termination reason: %s, exit code %d", orDash(t.Reason), t.ExitCode)}, logsOf(ev, cs.Name)...),
 					Hint:     "The application fails on its own. Read the log lines above (kubekaze logs <pod> includes the previous run).",
 				})
 			}
@@ -82,16 +85,20 @@ func Diagnose(ev Evidence) []Cause {
 			case "ImagePullBackOff", "ErrImagePull", "InvalidImageName":
 				add(imagePull(cs.Image, w, ev.Events))
 			case "CreateContainerConfigError", "CreateContainerError":
+				if storageFailure(w.Message) {
+					add(storageCause(w.Reason, w.Message))
+					break
+				}
 				add(Cause{
 					Title:    "The container could not be created, usually a missing ConfigMap/Secret or key",
 					Score:    90,
-					Evidence: []string{w.Reason + ": " + w.Message},
+					Evidence: []string{w.Reason + ": " + oneLine(w.Message)},
 					Hint:     "Check that every referenced ConfigMap/Secret and key exists in this namespace.",
 				})
 			case "CrashLoopBackOff":
 				if !has(causes, "exits with an error", "OOMKilled", "SIGKILL") {
 					add(Cause{Title: "The container keeps crashing (CrashLoopBackOff)", Score: 70,
-						Evidence: append([]string{"waiting reason: CrashLoopBackOff"}, tail(ev.LogTail, 3)...),
+						Evidence: append([]string{"waiting reason: CrashLoopBackOff"}, logsOf(ev, cs.Name)...),
 						Hint:     "See the previous container's logs for the crash reason."})
 				}
 			}
@@ -102,7 +109,7 @@ func Diagnose(ev Evidence) []Cause {
 	for _, ic := range p.Status.InitContainerStatuses {
 		if w := ic.State.Waiting; w != nil && w.Reason != "PodInitializing" && w.Reason != "" {
 			add(Cause{Title: fmt.Sprintf("Init container %q is failing (%s)", ic.Name, w.Reason), Score: 85,
-				Evidence: []string{w.Message}, Hint: "The pod will not start until its init containers succeed."})
+				Evidence: []string{oneLine(w.Message)}, Hint: "The pod will not start until its init containers succeed."})
 		}
 	}
 
@@ -131,6 +138,10 @@ func Diagnose(ev Evidence) []Cause {
 		case "FailedMount", "FailedAttachVolume":
 			add(Cause{Title: "A volume could not be mounted or attached", Score: 85, Evidence: []string{evLine(r)},
 				Hint: "Check the PVC/PV status, the storage class, and that referenced Secrets/ConfigMaps exist."})
+		case "Failed":
+			if storageFailure(r.Message) && !has(causes, "container storage failed") {
+				add(storageCause(r.Reason, r.Message))
+			}
 		case "Evicted", "Preempting":
 			add(Cause{Title: "The pod was evicted or preempted", Score: 80, Evidence: []string{evLine(r)}, Hint: "Look at node pressure (kubectl describe node) and pod priorities."})
 		case "FailedCreate", "FailedCreatePodSandBox":
@@ -247,8 +258,49 @@ func evLine(r events.Row) string {
 	return s
 }
 
+// maxEvidence caps one line of evidence. Runtime errors can be over a thousand
+// characters (full mount options and layer paths) and bury the actual cause.
+const maxEvidence = 240
+
 func oneLine(s string) string {
-	return strings.Join(strings.Fields(s), " ")
+	return Shorten(strings.Join(strings.Fields(s), " "), maxEvidence)
+}
+
+// Shorten cuts s to at most n characters, keeping the start and marking the cut.
+func Shorten(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n-1]) + "…"
+}
+
+// logsOf returns the last log lines as evidence for the container they were
+// read from, and nothing for any other container.
+func logsOf(ev Evidence, container string) []string {
+	if ev.LogContainer != "" && ev.LogContainer != container {
+		return nil
+	}
+	return tail(ev.LogTail, 3)
+}
+
+// storageFailure reports whether a container-runtime error says the node's
+// container storage failed, as opposed to a pod configuration mistake.
+func storageFailure(msg string) bool {
+	m := strings.ToLower(msg)
+	return strings.Contains(m, "input/output error") ||
+		(strings.Contains(m, "overlay") && strings.Contains(m, "failed to mount container")) ||
+		strings.Contains(m, "read-only file system") ||
+		strings.Contains(m, "no space left on device")
+}
+
+func storageCause(reason, msg string) Cause {
+	return Cause{
+		Title:    "The node's container storage failed (I/O error), not the pod's configuration",
+		Score:    96,
+		Evidence: []string{reason + ": " + oneLine(msg)},
+		Hint:     "The runtime could not mount the container's filesystem on this node. Check the node disk and filesystem (dmesg, journalctl -u crio, df -h /var/lib/containers); other pods on the node may fail the same way. A restart of CRI-O or a drain and reboot of the node usually clears it once the disk is healthy.",
+	}
 }
 
 func orDash(s string) string {

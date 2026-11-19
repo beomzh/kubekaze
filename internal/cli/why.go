@@ -187,8 +187,9 @@ func (a *app) buildWhy(ctx context.Context, cs kubernetes.Interface, pod *corev1
 		r.Events = evRows
 	}
 
-	r.LogSource, r.Logs = a.failingLogs(ctx, cs, pod, f)
-	r.Causes = why.Diagnose(why.Evidence{Pod: pod, Events: r.Events, LogTail: r.Logs, RolloutAge: rolloutAge, Now: now})
+	var logContainer string
+	r.LogSource, r.Logs, logContainer = a.failingLogs(ctx, cs, pod, f)
+	r.Causes = why.Diagnose(why.Evidence{Pod: pod, Events: r.Events, LogTail: r.Logs, LogContainer: logContainer, RolloutAge: rolloutAge, Now: now})
 	r.Healthy = len(r.Causes) == 0
 	return r, nil
 }
@@ -269,7 +270,7 @@ func (a *app) newestRSAge(ctx context.Context, cs kubernetes.Interface, ns, depl
 
 // failingLogs returns the log tail of the container most likely to explain the
 // problem: previous run if it restarted, else the current run.
-func (a *app) failingLogs(ctx context.Context, cs kubernetes.Interface, pod *corev1.Pod, f whyFlags) (string, []string) {
+func (a *app) failingLogs(ctx context.Context, cs kubernetes.Interface, pod *corev1.Pod, f whyFlags) (string, []string, string) {
 	var pick *corev1.ContainerStatus
 	for i := range pod.Status.ContainerStatuses {
 		c := &pod.Status.ContainerStatuses[i]
@@ -279,7 +280,7 @@ func (a *app) failingLogs(ctx context.Context, cs kubernetes.Interface, pod *cor
 		}
 	}
 	if pick == nil {
-		return "", nil
+		return "", nil, ""
 	}
 	lines := int64(f.logLines)
 	try := func(previous bool) []string {
@@ -306,13 +307,13 @@ func (a *app) failingLogs(ctx context.Context, cs kubernetes.Interface, pod *cor
 	}
 	if pick.RestartCount > 0 {
 		if l := try(true); len(l) > 0 {
-			return fmt.Sprintf("previous run of container %q", pick.Name), l
+			return fmt.Sprintf("previous run of container %q", pick.Name), l, pick.Name
 		}
 	}
 	if l := try(false); len(l) > 0 {
-		return fmt.Sprintf("current run of container %q", pick.Name), l
+		return fmt.Sprintf("current run of container %q", pick.Name), l, pick.Name
 	}
-	return "", nil
+	return "", nil, ""
 }
 
 func (a *app) printWhy(r *whyReport) {
