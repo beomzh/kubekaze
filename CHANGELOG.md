@@ -6,6 +6,16 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Added
+- `why node/<name>`: node conditions, heartbeat, taints, events and unhealthy pods on the node, with ranked causes (kubelet down, disk/memory/PID pressure, CNI or runtime problems, cordon).
+- `completion --alias <name>` and `completion install --alias <name>`: tab completion for a shell alias such as `kk`.
+- `ctx` checks the API server and the login right after switching and warns about an expired login or an unreachable cluster (`--no-check` skips it).
+- `ctx` picker groups contexts that share a cluster and user (what `oc project` creates per namespace); `--all` lists every context.
+- Detailed `--help` for every command: what is checked, how targets work, safety rules, many examples, exit codes and environment variables.
+
+### Changed
+- `status` always checks nodes (not only with `-A`), reports a missing heartbeat as `Unknown`, and shows the kubelet's reason for NotReady.
+
 ## [0.1.0] - 2026-11-19
 
 First release.

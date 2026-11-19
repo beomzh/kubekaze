@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+### 추가
+- `why node/<이름>`: 노드 상태 조건, heartbeat, taint, 이벤트, 노드 위 비정상 파드를 보여주고 원인(kubelet 중단, 디스크·메모리·PID 압박, CNI·런타임 문제, cordon)에 순위를 매깁니다.
+- `completion --alias <이름>`, `completion install --alias <이름>`: `kk` 같은 셸 alias에서도 자동완성이 동작합니다.
+- `ctx`가 전환 직후 API 서버와 로그인을 확인해 만료된 로그인이나 접속 불가를 바로 경고합니다(`--no-check`로 생략).
+- `ctx` 선택 화면이 클러스터와 사용자가 같은 컨텍스트(`oc project`가 네임스페이스마다 만드는 것)를 묶어 보여줍니다. `--all`로 전체를 봅니다.
+- 모든 명령의 상세한 `--help`: 점검 항목, 대상 지정 방법, 안전 규칙, 다양한 예시, 종료 코드와 환경 변수.
+
+### 변경
+- `status`가 `-A` 없이도 노드를 항상 점검하고, heartbeat가 끊기면 `Unknown`으로 표시하며, NotReady의 kubelet 사유를 보여줍니다.
+
 ## [0.1.0] - 2026-11-19
 
 첫 릴리즈입니다.

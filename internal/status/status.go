@@ -86,15 +86,26 @@ func lower(s string) string {
 	return string(b)
 }
 
+// heartbeatStale is how long a kubelet may be silent before the node is
+// considered unreachable even if its Ready condition has not flipped yet.
+const heartbeatStale = 2 * time.Minute
+
 func nodes(in Input) []Finding {
 	var out []Finding
 	for _, n := range in.Nodes {
-		ready := false
+		ready, known := false, false
+		var readyDetail string
 		var problems []string
 		for _, c := range n.Status.Conditions {
 			switch c.Type {
 			case corev1.NodeReady:
+				known = c.Status != corev1.ConditionUnknown
 				ready = c.Status == corev1.ConditionTrue
+				readyDetail = condDetail(c)
+				if ready && !c.LastHeartbeatTime.IsZero() && in.Now.Sub(c.LastHeartbeatTime.Time) > heartbeatStale {
+					ready, known = false, false
+					readyDetail = "no heartbeat for " + in.Now.Sub(c.LastHeartbeatTime.Time).Round(time.Second).String()
+				}
 			case corev1.NodeMemoryPressure, corev1.NodeDiskPressure, corev1.NodePIDPressure, corev1.NodeNetworkUnavailable:
 				if c.Status == corev1.ConditionTrue {
 					problems = append(problems, string(c.Type))
@@ -102,8 +113,10 @@ func nodes(in Input) []Finding {
 			}
 		}
 		switch {
+		case !ready && !known:
+			out = append(out, Finding{Severity: Critical, Kind: "Node", Name: n.Name, Status: "Unknown", Detail: joinOr([]string{readyDetail}, "kubelet is not reporting (node down or unreachable?)")})
 		case !ready:
-			out = append(out, Finding{Severity: Critical, Kind: "Node", Name: n.Name, Status: "NotReady", Detail: joinOr(problems, "kubelet not reporting ready")})
+			out = append(out, Finding{Severity: Critical, Kind: "Node", Name: n.Name, Status: "NotReady", Detail: joinOr([]string{readyDetail}, joinOr(problems, "kubelet reports not ready"))})
 		case len(problems) > 0:
 			out = append(out, Finding{Severity: Warning, Kind: "Node", Name: n.Name, Status: "Ready", Detail: joinOr(problems, "")})
 		case n.Spec.Unschedulable:
@@ -111,6 +124,16 @@ func nodes(in Input) []Finding {
 		}
 	}
 	return out
+}
+
+func condDetail(c corev1.NodeCondition) string {
+	switch {
+	case c.Reason != "" && c.Message != "":
+		return c.Reason + ": " + c.Message
+	case c.Reason != "":
+		return c.Reason
+	}
+	return c.Message
 }
 
 func joinOr(items []string, fallback string) string {

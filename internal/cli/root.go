@@ -66,13 +66,8 @@ func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
 
 func (a *app) newRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "kubekaze",
-		Short: "Terminal-first Kubernetes companion: what is wrong, and why",
-		Long: `kubekaze finds out what is wrong in your cluster and why, in one command.
-It reads your existing kubeconfig and is read-only unless a command says otherwise
-(sh, rm, ctx and ns change things and say so).
-
-Run 'kubekaze <command> --help' for details and examples.`,
+		Use:           "kubekaze",
+		Short:         "Terminal-first Kubernetes companion: what is wrong, and why",
 		Version:       version.String(),
 		SilenceUsage:  true,
 		SilenceErrors: true,

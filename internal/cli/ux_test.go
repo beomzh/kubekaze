@@ -106,7 +106,7 @@ func TestInstallCompletion(t *testing.T) {
 	home := t.TempDir()
 	d := dirs{home: home}
 
-	res, err := installCompletion(root, "bash", d, false)
+	res, err := installCompletion(root, "bash", d, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestInstallCompletion(t *testing.T) {
 	if b, _ := os.ReadFile(want); !strings.Contains(string(b), "kubekaze") {
 		t.Error("script not written")
 	}
-	if _, err := installCompletion(root, "bash", d, false); err != nil {
+	if _, err := installCompletion(root, "bash", d, false, ""); err != nil {
 		t.Errorf("re-install over our own file must work: %v", err)
 	}
 
@@ -125,26 +125,26 @@ func TestInstallCompletion(t *testing.T) {
 	if err := os.WriteFile(want, []byte("# something else\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := installCompletion(root, "bash", d, false); err == nil {
+	if _, err := installCompletion(root, "bash", d, false, ""); err == nil {
 		t.Error("foreign file must not be overwritten")
 	}
-	if _, err := installCompletion(root, "bash", d, true); err != nil {
+	if _, err := installCompletion(root, "bash", d, true, ""); err != nil {
 		t.Errorf("--force should overwrite: %v", err)
 	}
 
 	for _, sh := range []string{"zsh", "fish"} {
-		r, err := installCompletion(root, sh, d, false)
+		r, err := installCompletion(root, sh, d, false, "")
 		if err != nil || !strings.HasPrefix(r.path, home) {
 			t.Errorf("%s: %v %+v", sh, err, r)
 		}
 	}
-	if r, err := installCompletion(root, "zsh", d, false); err != nil || !strings.Contains(r.note, "fpath") {
+	if r, err := installCompletion(root, "zsh", d, false, ""); err != nil || !strings.Contains(r.note, "fpath") {
 		t.Errorf("zsh note should explain fpath: %+v %v", r, err)
 	}
-	if r, err := installCompletion(root, "powershell", d, false); err != nil || r.path != "" || !strings.Contains(r.note, "$PROFILE") {
+	if r, err := installCompletion(root, "powershell", d, false, ""); err != nil || r.path != "" || !strings.Contains(r.note, "$PROFILE") {
 		t.Errorf("powershell: %+v %v", r, err)
 	}
-	if _, err := installCompletion(root, "", d, false); err == nil {
+	if _, err := installCompletion(root, "", d, false, ""); err == nil {
 		t.Error("empty shell should explain how to choose one")
 	}
 }
@@ -174,5 +174,38 @@ contexts:
 	code, out, _ = run("__complete", "rm", "")
 	if code != 0 || !strings.Contains(out, "pods") {
 		t.Errorf("rm completion: exit=%d\n%s", code, out)
+	}
+}
+
+func TestCompletionAlias(t *testing.T) {
+	want := map[string]string{
+		"bash":       "complete -o default -F __start_kubekaze kk",
+		"zsh":        "compdef _kubekaze kk",
+		"fish":       "complete -c kk -w kubekaze",
+		"powershell": "Register-ArgumentCompleter -CommandName 'kk'",
+	}
+	for sh, line := range want {
+		code, out, errs := run("completion", sh, "--alias", "kk")
+		if code != 0 || !strings.Contains(out, line) {
+			t.Errorf("%s: exit=%d missing %q (err=%s)", sh, code, line, errs)
+		}
+		if _, plain, _ := run("completion", sh); strings.Contains(plain, " kk") {
+			t.Errorf("%s: alias leaked into the plain script", sh)
+		}
+	}
+	_, zsh, _ := run("completion", "zsh", "--alias", "kk")
+	if !strings.HasPrefix(zsh, "#compdef kubekaze kk\n") {
+		t.Errorf("zsh header should list the alias: %q", zsh[:40])
+	}
+	if code, _, errs := run("completion", "bash", "--alias", "k k; rm -rf"); code == 0 || !strings.Contains(errs, "invalid alias") {
+		t.Errorf("unsafe alias must be rejected: exit=%d %s", code, errs)
+	}
+	root := (&app{}).newRoot()
+	res, err := installCompletion(root, "bash", dirs{home: t.TempDir()}, false, "kk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(res.path); !strings.Contains(string(b), "-F __start_kubekaze kk") {
+		t.Error("install --alias did not write the alias line")
 	}
 }

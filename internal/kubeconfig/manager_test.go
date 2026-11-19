@@ -76,3 +76,27 @@ func TestNamespaceSwitchAndPrevious(t *testing.T) {
 		t.Errorf("contexts changed: %v", names)
 	}
 }
+
+func TestGroupContexts(t *testing.T) {
+	infos := []ContextInfo{
+		{Name: "grafana/api:6443/admin", Cluster: "api:6443", User: "admin", Namespace: "grafana"},
+		{Name: "default/api:6443/admin", Cluster: "api:6443", User: "admin", Namespace: "default"},
+		{Name: "istio/api:6443/admin", Cluster: "api:6443", User: "admin", Namespace: "istio"},
+		{Name: "grafana/api:6443/dev", Cluster: "api:6443", User: "dev", Namespace: "grafana"},
+		{Name: "kind-test", Cluster: "kind-test", User: "kind-test"},
+	}
+	g := GroupContexts(infos, "")
+	if len(g) != 3 {
+		t.Fatalf("groups = %d, want 3: %+v", len(g), g)
+	}
+	if g[0].User != "admin" || g[0].Count != 3 || g[0].Rep.Name != "default/api:6443/admin" {
+		t.Errorf("admin group should pick the default namespace: %+v", g[0])
+	}
+	if g[1].User != "dev" || g[1].Count != 1 || g[1].Rep.Name != "grafana/api:6443/dev" {
+		t.Errorf("single context stays as is: %+v", g[1])
+	}
+	cur := GroupContexts(infos, "istio/api:6443/admin")
+	if !cur[0].Current || cur[0].Rep.Name != "istio/api:6443/admin" {
+		t.Errorf("the current context must represent its group: %+v", cur[0])
+	}
+}
