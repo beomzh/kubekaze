@@ -6,7 +6,7 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
-## [0.1.2-1] - 2026-11-19 (not released, no tag; will ship in the next release, 0.1.3)
+## [0.1.3] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
 
 ### Fixed
 - `completion --alias` (bash): tab completion did nothing for `kk` unless `kk` was also a defined shell alias, because the script ran `kk __complete` and bash then fell back to file names. It now asks `kubekaze` itself.
