@@ -277,3 +277,10 @@ func TestShQuote(t *testing.T) {
 		t.Error(got)
 	}
 }
+
+func TestShDebugWithCommandIsRefused(t *testing.T) {
+	code, _, errs := run("sh", "mypod", "--debug", "--", "id")
+	if code == 0 || !strings.Contains(errs, "cannot be combined") {
+		t.Errorf("--debug with a command must be refused, got exit=%d %q", code, errs)
+	}
+}

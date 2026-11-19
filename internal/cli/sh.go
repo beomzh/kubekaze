@@ -118,6 +118,11 @@ func (a *app) runSh(ctx context.Context, ref string, remote []string, f shFlags)
 	if err != nil {
 		return err
 	}
+	if f.debug && len(remote) > 0 {
+		// Silently running the command in the application's own container would
+		// do the opposite of what --debug asks for.
+		return fmt.Errorf("--debug opens an interactive debug container and cannot be combined with a command after \"--\"")
+	}
 	cs, err := a.opts.Clientset()
 	if err != nil {
 		return err
