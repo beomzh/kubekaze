@@ -6,6 +6,15 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-20 (not released, no tag; ships with the next minor release, 0.2.0)
+
+### Added
+- `why node`: container restart history is now part of the diagnosis. Several unrelated pods whose containers restarted within 10 minutes of each other (last 7 days) are reported as a node-level event, with what to check inside the node (`last -x reboot`, `journalctl --list-boots`, `coredumpctl list`, `dmesg -T`), because Kubernetes cannot see kernel or runtime crashes and core dumps. When the node already has a problem, containers with 10 or more restarts in the last 7 days are listed worst first; they never make a healthy node look unhealthy.
+
+### Changed
+- `why node` on a healthy node says that only the Kubernetes API was checked and where to look inside the node (`coredumpctl list`, `dmesg -T`).
+- `why node`: a `Rebooted` event is shown for 7 days instead of 2 hours (ranked lower after the first 2 hours), because a reboot is a fact about the node's past and does not clear itself.
+
 ## [0.1.7] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
 
 ### Fixed

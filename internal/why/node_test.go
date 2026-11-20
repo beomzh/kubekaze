@@ -142,3 +142,66 @@ func TestCNIPodNamePattern(t *testing.T) {
 		}
 	}
 }
+
+func restartAt(ns, pod string, count int32, ago time.Duration) PodRestart {
+	return PodRestart{Namespace: ns, Pod: pod, Container: "c", Count: count, Last: now.Add(-ago)}
+}
+
+func TestRestartBurstPointsAtTheNode(t *testing.T) {
+	rs := []PodRestart{
+		restartAt("a", "p1", 1, 3*time.Hour), restartAt("b", "p2", 1, 3*time.Hour+2*time.Minute),
+		restartAt("c", "p3", 2, 3*time.Hour+4*time.Minute), restartAt("d", "p4", 1, 3*time.Hour+6*time.Minute),
+		restartAt("e", "far", 1, 40*time.Hour), // not part of the burst
+	}
+	causes := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: rs, Now: now})
+	if len(causes) == 0 || !strings.Contains(causes[0].Title, "4 pods on this node restarted") {
+		t.Fatalf("got %+v", causes)
+	}
+	if !strings.Contains(causes[0].Hint, "coredumpctl") {
+		t.Errorf("hint should send the reader into the node: %q", causes[0].Hint)
+	}
+}
+
+func TestRestartsSpreadOverTimeAreNotABurst(t *testing.T) {
+	var rs []PodRestart
+	for i := 0; i < 6; i++ {
+		rs = append(rs, restartAt("a", "p"+string(rune('1'+i)), 1, time.Duration(i+1)*5*time.Hour))
+	}
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: rs, Now: now}); c != nil {
+		t.Errorf("got %+v", c)
+	}
+}
+
+func TestFrequentRestarterIsListedWorstFirst(t *testing.T) {
+	rs := []PodRestart{restartAt("a", "small", 12, time.Hour), restartAt("b", "big", 450, 80*time.Hour), restartAt("c", "calm", 3, time.Hour)}
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: rs, Now: now}); c != nil {
+		t.Fatalf("a restarting pod alone must not make the node unhealthy: %+v", c)
+	}
+	cordoned := node(healthyReady())
+	cordoned.Spec.Unschedulable = true
+	causes := DiagnoseNode(NodeEvidence{Node: cordoned, Restarts: rs, Now: now})
+	last := causes[len(causes)-1]
+	if !strings.Contains(last.Title, "2 container(s)") || !strings.HasPrefix(last.Evidence[0], "b/big") {
+		t.Fatalf("got %+v", causes)
+	}
+}
+
+func TestOldRestartsAreHistory(t *testing.T) {
+	rs := []PodRestart{restartAt("a", "p", 900, 9*24*time.Hour)}
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: rs, Now: now}); c != nil {
+		t.Errorf("got %+v", c)
+	}
+}
+
+func TestRebootStaysVisibleForAWeekButRanksLower(t *testing.T) {
+	ev := func(ago time.Duration) []events.Row {
+		return []events.Row{{Type: "Warning", Reason: "Rebooted", Message: "Node n1 has been rebooted", Last: now.Add(-ago)}}
+	}
+	c := top(t, DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Events: ev(3 * 24 * time.Hour), Now: now}))
+	if !strings.Contains(c.Title, "rebooted") || c.Score >= 60 {
+		t.Errorf("3d old: %+v", c)
+	}
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Events: ev(9 * 24 * time.Hour), Now: now}); c != nil {
+		t.Errorf("9d old should be ignored: %+v", c)
+	}
+}

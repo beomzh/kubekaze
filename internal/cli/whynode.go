@@ -110,7 +110,19 @@ func nodeReportFor(n *corev1.Node, evs []events.Row, pods []corev1.Pod, now time
 	for _, b := range bad {
 		r.BadPods = append(r.BadPods, fmt.Sprintf("%s/%s: %s", b.Namespace, b.Name, b.Status))
 	}
-	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: bad, Now: now})
+	var restarts []why.PodRestart
+	for i := range pods {
+		p := &pods[i]
+		for _, cs := range p.Status.ContainerStatuses {
+			if cs.RestartCount > 0 && cs.LastTerminationState.Terminated != nil {
+				restarts = append(restarts, why.PodRestart{
+					Namespace: p.Namespace, Pod: p.Name, Container: cs.Name,
+					Count: cs.RestartCount, Last: cs.LastTerminationState.Terminated.FinishedAt.Time,
+				})
+			}
+		}
+	}
+	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: bad, Restarts: restarts, Now: now})
 	r.Healthy = len(r.Causes) == 0
 	return r
 }
@@ -284,6 +296,7 @@ func (a *app) printNode(r *nodeReport) {
 	fmt.Fprintln(a.out)
 	if r.Healthy {
 		fmt.Fprintf(a.out, "%s No problem found for this node.\n", a.pal.Green("OK"))
+		fmt.Fprintln(a.out, a.pal.Dim("Checked through the Kubernetes API only. Crashes inside the node (core dumps, kernel messages) are not visible from here: on the node run `coredumpctl list` and `dmesg -T`."))
 		return
 	}
 	fmt.Fprintln(a.out, a.pal.Bold("Suspected causes (most likely first)"))

@@ -19,7 +19,22 @@ type NodeEvidence struct {
 	Events []events.Row // events whose involved object is this node
 	// BadPods are the pods on the node that are not healthy (and not just starting).
 	BadPods []NodePod
-	Now     time.Time
+	// Restarts are the containers on the node that were restarted at least once,
+	// with when their last run ended.
+	Restarts []PodRestart
+	Now      time.Time
+}
+
+// PodRestart is a container that has been restarted: how often and when its
+// last run ended.
+type PodRestart struct {
+	Namespace, Pod, Container string
+	Count                     int32
+	Last                      time.Time
+}
+
+func (r PodRestart) String() string {
+	return fmt.Sprintf("%s/%s (%s)", r.Namespace, r.Pod, r.Container)
 }
 
 // NodePod is an unhealthy pod running on the node.
@@ -34,6 +49,19 @@ func (p NodePod) String() string { return fmt.Sprintf("%s/%s: %s", p.Namespace, 
 // distributions (OpenShift) keep events for days; a warning from two weeks ago
 // is history, not a diagnosis of today's problem.
 const eventWindow = 2 * time.Hour
+
+const (
+	// rebootWindow is how long a Rebooted event stays interesting: a reboot is a
+	// fact about the node's past, not a state that clears itself.
+	rebootWindow = 7 * 24 * time.Hour
+	// restartWindow is how far back container restarts are looked at.
+	restartWindow = 7 * 24 * time.Hour
+	// burstSpan and burstPods define "several pods restarted at the same moment".
+	burstSpan = 10 * time.Minute
+	burstPods = 4
+	// manyRestarts is the restart count from which a container is called a frequent restarter.
+	manyRestarts = 10
+)
 
 // cniPod matches the node-level network agents of common CNI plugins.
 var cniPod = regexp.MustCompile(`^(ovnkube-node|ovs-node|ovs-.*|calico-node|cilium(-[a-z0-9]+)?|aws-node|azure-cni.*|azure-ip-masq-agent|flannel.*|kube-flannel.*|kube-router.*|antrea-agent|weave-net.*|multus.*|canal.*|sdn(-[a-z0-9]+)?)(-[a-z0-9]{5,})?$`)
@@ -114,7 +142,7 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 		if r.Type != "Warning" {
 			continue
 		}
-		if !r.Last.IsZero() && ev.Now.Sub(r.Last) > eventWindow {
+		if !r.Last.IsZero() && ev.Now.Sub(r.Last) > eventWindow && !(r.Reason == "Rebooted" && ev.Now.Sub(r.Last) <= rebootWindow) {
 			continue // history, not today's problem
 		}
 		switch r.Reason {
@@ -133,7 +161,11 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 		case "ContainerGCFailed", "KubeletSetupFailed", "FailedNodeAllocatableEnforcement", "InvalidDiskCapacity":
 			add(Cause{Title: "The kubelet reports a node setup problem (" + r.Reason + ")", Score: 70, Evidence: []string{evLine(r)}, Hint: "Check the kubelet log on the node."})
 		case "Rebooted":
-			add(Cause{Title: "The node rebooted recently", Score: 60, Evidence: []string{evLine(r)}, Hint: "Pods were restarted by the reboot; find out why it rebooted (kernel panic, maintenance, autoscaler)."})
+			score := 60
+			if !r.Last.IsZero() && ev.Now.Sub(r.Last) > eventWindow {
+				score = 50 // already a while ago, the node has been up since
+			}
+			add(Cause{Title: "The node rebooted recently", Score: score, Evidence: []string{evLine(r)}, Hint: "Pods were restarted by the reboot; find out why it rebooted (kernel panic, maintenance, autoscaler). On the node: `last -x reboot`, `journalctl --list-boots`, `coredumpctl list`."})
 		case "NodeNotReady":
 			add(Cause{Title: "The node changed to NotReady", Score: 65, Evidence: []string{evLine(r)}})
 		}
@@ -164,6 +196,16 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 		add(Cause{Title: fmt.Sprintf("%d pods have been stuck in ContainerCreating for over 5 minutes", stuck), Score: 60,
 			Evidence: []string{"several pods on the same node cannot start their containers"},
 			Hint:     "A node-level problem: container runtime, CNI, or a volume/storage backend. Check the runtime and kubelet logs on the node."})
+	}
+
+	burst, frequent := restartCauses(ev)
+	if burst != nil {
+		add(*burst)
+	}
+	// One container that restarts a lot is that pod's problem, not the node's:
+	// it only supports a diagnosis that already exists, it never creates one.
+	if frequent != nil && len(causes) > 0 {
+		add(*frequent)
 	}
 
 	if len(causes) > 0 && len(ev.BadPods) > 0 {
@@ -221,4 +263,88 @@ func readyHint(s string) string {
 		return "The kubelet cannot authenticate; look for expired or unapproved certificates (kubectl get csr)."
 	}
 	return "Check the kubelet log on the node: `journalctl -u kubelet`."
+}
+
+// restartCauses turns container restart history into causes. The API cannot see
+// inside the node (kernel crashes, core dumps, reboots older than the event
+// retention), but it does remember when containers were restarted: many pods
+// restarting at the same moment points at the node, one pod restarting over and
+// over points at that pod.
+func restartCauses(ev NodeEvidence) (burst, frequent *Cause) {
+	var recent []PodRestart
+	for _, r := range ev.Restarts {
+		if !r.Last.IsZero() && ev.Now.Sub(r.Last) <= restartWindow {
+			recent = append(recent, r)
+		}
+	}
+	if len(recent) == 0 {
+		return nil, nil
+	}
+
+	// Burst: the latest group of pods whose last runs ended within burstSpan.
+	sort.Slice(recent, func(i, j int) bool { return recent[i].Last.Before(recent[j].Last) })
+	var best []PodRestart
+	for i := range recent {
+		pods := map[string]bool{}
+		var group []PodRestart
+		for j := i; j < len(recent) && recent[j].Last.Sub(recent[i].Last) <= burstSpan; j++ {
+			key := recent[j].Namespace + "/" + recent[j].Pod
+			pods[key] = true
+			group = append(group, recent[j])
+		}
+		if len(pods) >= burstPods && (len(pods) >= distinctPods(best)) {
+			best = group
+		}
+	}
+	if len(best) > 0 {
+		shown := []string{}
+		for i, r := range best {
+			if i == 5 {
+				shown = append(shown, fmt.Sprintf("(and %d more)", len(best)-5))
+				break
+			}
+			shown = append(shown, r.String())
+		}
+		last := best[len(best)-1].Last
+		burst = &Cause{
+			Title:    fmt.Sprintf("%d pods on this node restarted within %s of each other", distinctPods(best), events.Age(burstSpan)),
+			Score:    58,
+			Evidence: append([]string{"around " + events.Age(ev.Now.Sub(last)) + " ago"}, shown...),
+			Hint:     "Pods that have nothing to do with each other restarting together point at the node: a reboot, a kernel or runtime crash, or an overloaded kubelet. Kubernetes cannot see inside the node; check there: `last -x reboot`, `journalctl --list-boots`, `coredumpctl list`, `dmesg -T`.",
+		}
+	}
+
+	// Frequent restarters.
+	var many []PodRestart
+	for _, r := range recent {
+		if r.Count >= manyRestarts {
+			many = append(many, r)
+		}
+	}
+	if len(many) > 0 {
+		sort.Slice(many, func(i, j int) bool { return many[i].Count > many[j].Count })
+		shown := []string{}
+		for i, r := range many {
+			if i == 5 {
+				shown = append(shown, fmt.Sprintf("(and %d more)", len(many)-5))
+				break
+			}
+			shown = append(shown, fmt.Sprintf("%s: %d restarts, last %s ago", r, r.Count, events.Age(ev.Now.Sub(r.Last))))
+		}
+		frequent = &Cause{
+			Title:    fmt.Sprintf("%d container(s) on this node keep restarting", len(many)),
+			Score:    35,
+			Evidence: shown,
+			Hint:     "Explain the worst one: kubekaze why " + many[0].Pod + " -n " + many[0].Namespace + ". If the same node always shows restarts, compare with the same workload on other nodes.",
+		}
+	}
+	return burst, frequent
+}
+
+func distinctPods(rs []PodRestart) int {
+	m := map[string]bool{}
+	for _, r := range rs {
+		m[r.Namespace+"/"+r.Pod] = true
+	}
+	return len(m)
 }
