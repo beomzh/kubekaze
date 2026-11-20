@@ -105,7 +105,8 @@ Or load it yourself:
   powershell  kubekaze completion powershell | Out-String | Invoke-Expression
 
 Using an alias (alias kk=kubekaze)? Shells bind completion to the command name,
-so the alias needs to be named explicitly:
+so the alias needs to be named explicitly. --alias only wires up completion; it
+does not create the alias or the command kk (see "completion install --help"):
 
   source <(kubekaze completion bash --alias kk)
   kubekaze completion install --alias kk
@@ -163,6 +164,10 @@ With --alias kk, bash and fish also get a tiny file named after the alias
 (.../completions/kk, .../completions/kk.fish), because both load completion files
 by the name you type. zsh lists the alias inside its single file.
 
+--alias does not create the command kk. It only makes completion work for a name
+you already have. If kk is not defined yet, add alias kk=kubekaze to ~/.bashrc or
+~/.zshrc (fish: alias kk kubekaze), or link the binary: ln -s "$(command -v kubekaze)" ~/bin/kk
+
 Nothing outside your home directory is touched, and an existing file that does
 not look like a kubekaze completion is left alone unless --force is given.
 
@@ -203,6 +208,9 @@ Prefer your own startup file? Skip install and add one line to ~/.bashrc (or
 				fmt.Fprintf(a.out, "%s wrote %s\n", a.pal.Green("OK"), e)
 			}
 			fmt.Fprintln(a.out, res.note)
+			if installAlias != "" {
+				fmt.Fprintln(a.out, aliasReminder(installAlias))
+			}
 			return nil
 		},
 	}
@@ -557,6 +565,13 @@ func (a *app) newVersionCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Run:   func(*cobra.Command, []string) { fmt.Fprintf(a.out, "kubekaze %s\n", version.String()) },
 	}
+}
+
+// aliasReminder says what --alias does not do: it wires up completion for the
+// name but does not define the name. A shell alias cannot be detected from here,
+// so the reminder is always shown.
+func aliasReminder(alias string) string {
+	return fmt.Sprintf("Note: --alias only enables completion for %[1]s. It does not create the command. If %[1]s is not defined yet:\n  alias %[1]s=kubekaze        (add to ~/.bashrc or ~/.zshrc; fish: alias %[1]s kubekaze)\n  or link the binary:  ln -s \"$(command -v kubekaze)\" ~/bin/%[1]s", alias)
 }
 
 func aliasLoadLine(shell string) string {

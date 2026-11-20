@@ -476,7 +476,7 @@ const rootExample = `  # start here
   kubekaze ctx
   kubekaze ns
 
-  # tab completion (also for an alias: --alias kk)
+  # tab completion (if you already use alias kk=kubekaze, add: --alias kk)
   kubekaze completion install`
 
 // applyHelp sets groups and examples on the registered commands.

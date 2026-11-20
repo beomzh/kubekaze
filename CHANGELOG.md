@@ -6,6 +6,11 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-20 (not released, no tag; ships with the next minor release, 0.3.0)
+
+### Changed
+- `completion install --alias kk` and the help texts now say that `--alias` only wires up tab completion for a name you already have and does not create the command `kk`, and show how to define it (`alias kk=kubekaze` or a symlink). The root help line "also for an alias" read as if the alias were created.
+
 ## [0.2.0] - 2026-11-20
 
 Includes everything from the unreleased 0.1.3 to 0.1.8: new `ns` summary, `ls`, `top`, node restart signals, and fixes found while testing on a real OpenShift cluster.

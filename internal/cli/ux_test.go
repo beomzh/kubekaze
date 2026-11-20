@@ -215,6 +215,15 @@ func TestCompletionAlias(t *testing.T) {
 	}
 }
 
+func TestInstallAliasSaysItDoesNotCreateTheCommand(t *testing.T) {
+	r := aliasReminder("kk")
+	for _, want := range []string{"does not create the command", "alias kk=kubekaze", "ln -s"} {
+		if !strings.Contains(r, want) {
+			t.Errorf("reminder lacks %q:\n%s", want, r)
+		}
+	}
+}
+
 func TestInstallAliasWritesFilesNamedAfterTheAlias(t *testing.T) {
 	root := (&app{}).newRoot()
 	home := t.TempDir()
