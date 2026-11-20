@@ -101,7 +101,7 @@ kubekaze completion bash         # or print the script: bash, zsh, fish, powersh
 
 Prefer your own startup file? Skip `install` and put `source <(kubekaze completion bash)` in `~/.bashrc` (or `~/.zshrc`).
 
-Using `alias kk=kubekaze`? Shells bind completion to the command name, so tell kubekaze about the alias: `kubekaze completion install --alias kk`. This is the same as `complete -F __start_kubekaze kk`; for bash and fish it also writes a small file named after the alias (`.../completions/kk`, `kk.fish`), because they load completion files by the name you type. Or in `~/.bashrc`: `source <(kubekaze completion bash --alias kk)`.
+Using `alias kk=kubekaze`? Shells bind completion to the command name, so tell kubekaze about the alias: `kubekaze completion install --alias kk`. `--alias` only wires up completion; it does not create the `kk` command, so define it first (`alias kk=kubekaze` in `~/.bashrc`, or a symlink). This is the same as `complete -F __start_kubekaze kk`; for bash and fish it also writes a small file named after the alias (`.../completions/kk`, `kk.fish`), because they load completion files by the name you type. Or in `~/.bashrc`: `source <(kubekaze completion bash --alias kk)`.
 
 Completes commands, flags, contexts, namespaces, pods and workloads (`deploy/...`), looked up live from the cluster you point at. Mistyped commands and flags get a "Did you mean" hint, and every command has a detailed description and examples in `--help` (also `kubekaze --help` for exit codes and environment variables).
 
