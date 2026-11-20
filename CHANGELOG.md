@@ -6,55 +6,34 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
-## [0.1.8] - 2026-11-20 (not released, no tag; ships with the next minor release, 0.2.0)
+## [0.2.0] - 2026-11-20
+
+Includes everything from the unreleased 0.1.3 to 0.1.8: new `ns` summary, `ls`, `top`, node restart signals, and fixes found while testing on a real OpenShift cluster.
 
 ### Added
 - `why node`: container restart history is now part of the diagnosis. Several unrelated pods whose containers restarted within 10 minutes of each other (last 7 days) are reported as a node-level event, with what to check inside the node (`last -x reboot`, `journalctl --list-boots`, `coredumpctl list`, `dmesg -T`), because Kubernetes cannot see kernel or runtime crashes and core dumps. When the node already has a problem, containers with 10 or more restarts in the last 7 days are listed worst first; they never make a healthy node look unhealthy.
+- `kubekaze top`: read-only usage snapshot from the metrics API (metrics-server). Nodes with CPU and memory vs allocatable (highest first, above 80% in red) and the top pods (`--limit`, default 10) by `--sort cpu|memory` in the current namespace or with `-A`, shown with the percent of their limit so throttling or near-OOM pods stand out. `top ns` (or `--by-namespace`) sums usage per namespace. `-w/--watch [--interval 5s]` redraws in place on a terminal and prints plain repeated snapshots otherwise; Ctrl-C exits with 130. `-o json` and tab completion for `--sort`, `--limit`, `--interval`.
+- When metrics-server is missing or the metrics API is forbidden, `top` prints one line saying what to install or which RBAC is needed and exits 1.
+- `kubekaze ls`: one-screen overview of the current namespace (`-n`, `-A`): Deployments, StatefulSets and DaemonSets (ready/desired), Jobs, CronJobs, Services, Ingresses, OpenShift Routes (only when the cluster has them), PVC phases, and the names of ConfigMaps and Secrets. Unhealthy objects come first, large healthy sections are summarised with a count, and kinds you may not read are reported as skipped.
+- `kubekaze ls <kind> [name...]` lists one kind in detail (`deploy`, `sts`, `ds`, `job`, `cronjob`, `svc`, `ingress`, `route`, `pvc`, `cm`, `secret`); tab completion offers kinds and object names. `-o json` is supported.
+- Secrets are shown by name, type and key count only; their data is never printed.
+- `ns`: the interactive picker shows, next to each namespace (or OpenShift project), the pod count, the number of unhealthy pods (same rules as `status`) and the number of Warning events from the last hour. Pods and events are listed once cluster-wide, not per namespace; filtering still matches the name. If you may not list them cluster-wide, a note says so and the plain name list is shown (`--no-summary` skips the calls).
+- `ns --list` (`-l`) and `ns -o json`: the same summary non-interactively, for pipes and scripts. Plain `ns` piped still prints just the names.
+- `why node`: a failing node-level network agent (ovnkube-node, calico-node, cilium, aws-node, flannel, multus, ...) is reported as the cause of pods stuck in `ContainerCreating`, with the failing pod to explain next; several pods stuck for over 5 minutes are reported as a node-level problem.
 
 ### Changed
 - `why node` on a healthy node says that only the Kubernetes API was checked and where to look inside the node (`coredumpctl list`, `dmesg -T`).
 - `why node`: a `Rebooted` event is shown for 7 days instead of 2 hours (ranked lower after the first 2 hours), because a reboot is a fact about the node's past and does not clear itself.
-
-## [0.1.7] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
+- `status` without `-A` says that only the current namespace and the nodes were checked, because "healthy" there says nothing about the rest of the cluster.
 
 ### Fixed
 - `sh --debug -- <command>`: `--debug` was silently ignored and the command ran in the application's own container. It is now refused with a message, because a debug container is interactive.
 - `why <pod>`: a `CreateContainerError` caused by the node's container storage (for example `creating overlay mount ... input/output error`) was reported as "missing ConfigMap/Secret". It is now reported as a failing node filesystem, with what to check on the node. A real missing ConfigMap/Secret is still reported as before.
 - `why` / `events`: very long event and evidence messages (runtime errors can exceed 1000 characters) are cut at 240 characters in tables. `-o json` keeps the full text.
 - `why <pod>`: log lines are quoted only as evidence for the container they were read from, not for another container of the same pod.
-
-### Changed
-- `status` without `-A` says that only the current namespace and the nodes were checked, because "healthy" there says nothing about the rest of the cluster.
-
-## [0.1.6] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
-
-### Added
-- `kubekaze top`: read-only usage snapshot from the metrics API (metrics-server). Nodes with CPU and memory vs allocatable (highest first, above 80% in red) and the top pods (`--limit`, default 10) by `--sort cpu|memory` in the current namespace or with `-A`, shown with the percent of their limit so throttling or near-OOM pods stand out. `top ns` (or `--by-namespace`) sums usage per namespace. `-w/--watch [--interval 5s]` redraws in place on a terminal and prints plain repeated snapshots otherwise; Ctrl-C exits with 130. `-o json` and tab completion for `--sort`, `--limit`, `--interval`.
-- When metrics-server is missing or the metrics API is forbidden, `top` prints one line saying what to install or which RBAC is needed and exits 1.
-
-## [0.1.5] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
-
-### Added
-- `kubekaze ls`: one-screen overview of the current namespace (`-n`, `-A`): Deployments, StatefulSets and DaemonSets (ready/desired), Jobs, CronJobs, Services, Ingresses, OpenShift Routes (only when the cluster has them), PVC phases, and the names of ConfigMaps and Secrets. Unhealthy objects come first, large healthy sections are summarised with a count, and kinds you may not read are reported as skipped.
-- `kubekaze ls <kind> [name...]` lists one kind in detail (`deploy`, `sts`, `ds`, `job`, `cronjob`, `svc`, `ingress`, `route`, `pvc`, `cm`, `secret`); tab completion offers kinds and object names. `-o json` is supported.
-- Secrets are shown by name, type and key count only; their data is never printed.
-
-
-## [0.1.4] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
-
-### Added
-- `ns`: the interactive picker shows, next to each namespace (or OpenShift project), the pod count, the number of unhealthy pods (same rules as `status`) and the number of Warning events from the last hour. Pods and events are listed once cluster-wide, not per namespace; filtering still matches the name. If you may not list them cluster-wide, a note says so and the plain name list is shown (`--no-summary` skips the calls).
-- `ns --list` (`-l`) and `ns -o json`: the same summary non-interactively, for pipes and scripts. Plain `ns` piped still prints just the names.
-
-## [0.1.3] - 2026-11-19 (not released, no tag; ships with the next minor release, 0.2.0)
-
-### Fixed
 - `completion --alias` (bash): tab completion did nothing for `kk` unless `kk` was also a defined shell alias, because the script ran `kk __complete` and bash then fell back to file names. It now asks `kubekaze` itself.
 - `why node` / `status`: a Ready node was reported as silent when its heartbeat was a few minutes old. The kubelet only rewrites the node status about every 5 minutes (liveness is a Lease), so the limit is now 10 minutes.
 - `why node`: warnings older than 2 hours (OpenShift keeps events for days) are no longer treated as causes, and an `ImageGCFailed` "container not found" message is recognised as harmless noise instead of a disk problem.
-
-### Added
-- `why node`: a failing node-level network agent (ovnkube-node, calico-node, cilium, aws-node, flannel, multus, ...) is reported as the cause of pods stuck in `ContainerCreating`, with the failing pod to explain next; several pods stuck for over 5 minutes are reported as a node-level problem.
 
 ## [0.1.2] - 2026-11-19
 
