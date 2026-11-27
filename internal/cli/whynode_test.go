@@ -201,3 +201,31 @@ func TestWhyNodesRealWorldReport(t *testing.T) {
 		t.Errorf("summary wrong:\n%s", text)
 	}
 }
+
+func TestPastBurstKeepsNodeHealthyButMentionsIt(t *testing.T) {
+	n := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "w"}, Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{
+		{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: metav1.Now()}}}}
+	end := metav1.NewTime(time.Now().Add(-72 * time.Hour))
+	var pods []corev1.Pod
+	for _, name := range []string{"a", "b", "c", "d"} {
+		pods = append(pods, corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "x"}, Status: corev1.PodStatus{
+			Phase:      corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
+			ContainerStatuses: []corev1.ContainerStatus{{Name: "c", Ready: true, RestartCount: 1,
+				State:                corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
+				LastTerminationState: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{FinishedAt: end, ExitCode: 255, Reason: "Unknown"}}}},
+		}})
+	}
+	r := nodeReportFor(n, nil, pods, time.Now())
+	if !r.Healthy {
+		t.Fatalf("a past event must not make the node unhealthy: %+v", r.Causes)
+	}
+	var out strings.Builder
+	a := &app{out: &out}
+	if err := a.emitNodeReports([]*nodeReport{r}, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "look healthy") || !strings.Contains(out.String(), "Past event on w") {
+		t.Errorf("output:\n%s", out.String())
+	}
+}

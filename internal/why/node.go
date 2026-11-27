@@ -31,6 +31,8 @@ type PodRestart struct {
 	Namespace, Pod, Container string
 	Count                     int32
 	Last                      time.Time
+	ExitCode                  int32
+	Reason                    string // termination reason of the last run, e.g. Error, OOMKilled
 }
 
 func (r PodRestart) String() string {
@@ -59,6 +61,9 @@ const (
 	// burstSpan and burstPods define "several pods restarted at the same moment".
 	burstSpan = 10 * time.Minute
 	burstPods = 4
+	// pastAfter is how long without a repeat turns a one-off node event (a
+	// restart burst, a reboot) into history instead of a current problem.
+	pastAfter = 24 * time.Hour
 	// manyRestarts is the restart count from which a container is called a frequent restarter.
 	manyRestarts = 10
 )
@@ -165,7 +170,7 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 			if !r.Last.IsZero() && ev.Now.Sub(r.Last) > eventWindow {
 				score = 50 // already a while ago, the node has been up since
 			}
-			add(Cause{Title: "The node rebooted recently", Score: score, Evidence: []string{evLine(r)}, Hint: "Pods were restarted by the reboot; find out why it rebooted (kernel panic, maintenance, autoscaler). On the node: `last -x reboot`, `journalctl --list-boots`, `coredumpctl list`."})
+			add(Cause{Title: "The node rebooted recently", Score: score, Past: !r.Last.IsZero() && ev.Now.Sub(r.Last) > pastAfter, Evidence: []string{evLine(r)}, Hint: "Pods were restarted by the reboot; find out why it rebooted (kernel panic, maintenance, autoscaler). On the node: `last -x reboot`, `journalctl --list-boots`, `coredumpctl list`."})
 		case "NodeNotReady":
 			add(Cause{Title: "The node changed to NotReady", Score: 65, Evidence: []string{evLine(r)}})
 		}
@@ -204,11 +209,11 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 	}
 	// One container that restarts a lot is that pod's problem, not the node's:
 	// it only supports a diagnosis that already exists, it never creates one.
-	if frequent != nil && len(causes) > 0 {
+	if frequent != nil && current(causes) {
 		add(*frequent)
 	}
 
-	if len(causes) > 0 && len(ev.BadPods) > 0 {
+	if current(causes) && len(ev.BadPods) > 0 {
 		shown := make([]string, 0, 5)
 		for i, p := range ev.BadPods {
 			if i == 5 {
@@ -221,7 +226,12 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 			Evidence: shown, Hint: "Explain one of them: kubekaze why <pod> -n <namespace>"})
 	}
 
-	sort.SliceStable(causes, func(i, j int) bool { return causes[i].Score > causes[j].Score })
+	sort.SliceStable(causes, func(i, j int) bool {
+		if causes[i].Past != causes[j].Past {
+			return !causes[i].Past // current problems first
+		}
+		return causes[i].Score > causes[j].Score
+	})
 	for i := range causes {
 		causes[i].Evidence = compact(causes[i].Evidence)
 	}
@@ -297,20 +307,25 @@ func restartCauses(ev NodeEvidence) (burst, frequent *Cause) {
 		}
 	}
 	if len(best) > 0 {
-		shown := []string{}
+		last := best[len(best)-1].Last
+		evidence := []string{fmt.Sprintf("last of them ended %s (%s ago)", last.Local().Format("2006-01-02 15:04:05 MST"), events.Age(ev.Now.Sub(last)))}
 		for i, r := range best {
 			if i == 5 {
-				shown = append(shown, fmt.Sprintf("(and %d more)", len(best)-5))
+				evidence = append(evidence, fmt.Sprintf("(and %d more)", len(best)-5))
 				break
 			}
-			shown = append(shown, r.String())
+			evidence = append(evidence, fmt.Sprintf("%s: %s at %s", r, exitText(r), r.Last.Local().Format("15:04:05")))
 		}
-		last := best[len(best)-1].Last
+		hint := "Pods that have nothing to do with each other restarting together point at the node: a reboot, a kernel or runtime crash, or an overloaded kubelet. Kubernetes cannot see inside the node; check there around that time: `last -x reboot`, `journalctl --list-boots`, `coredumpctl list`, `dmesg -T`."
+		if controlPlaneBurst(best) {
+			hint = "Control plane components restart together when they cannot renew their leader lease, usually because the API server or etcd was slow or unreachable. Check the etcd and API server logs around that time (disk latency, \"took too long\", lost leader), then the node itself: `last -x reboot`, `journalctl`, `coredumpctl list`."
+		}
 		burst = &Cause{
 			Title:    fmt.Sprintf("%d pods on this node restarted within %s of each other", distinctPods(best), events.Age(burstSpan)),
 			Score:    58,
-			Evidence: append([]string{"around " + events.Age(ev.Now.Sub(last)) + " ago"}, shown...),
-			Hint:     "Pods that have nothing to do with each other restarting together point at the node: a reboot, a kernel or runtime crash, or an overloaded kubelet. Kubernetes cannot see inside the node; check there: `last -x reboot`, `journalctl --list-boots`, `coredumpctl list`, `dmesg -T`.",
+			Evidence: evidence,
+			Hint:     hint,
+			Past:     ev.Now.Sub(last) > pastAfter,
 		}
 	}
 
@@ -347,4 +362,42 @@ func distinctPods(rs []PodRestart) int {
 		m[r.Namespace+"/"+r.Pod] = true
 	}
 	return len(m)
+}
+
+// current reports whether any cause is about the node's present state.
+func current(cs []Cause) bool {
+	for _, c := range cs {
+		if !c.Past {
+			return true
+		}
+	}
+	return false
+}
+
+func exitText(r PodRestart) string {
+	if r.Reason == "" {
+		return fmt.Sprintf("exit %d", r.ExitCode)
+	}
+	return fmt.Sprintf("exit %d %s", r.ExitCode, r.Reason)
+}
+
+// controlPlanePrefixes are pod names of components that use leader election or
+// back it (static pods are named <component>-<node>).
+var controlPlanePrefixes = []string{"kube-apiserver-", "kube-controller-manager-", "kube-scheduler-", "cloud-controller-manager-", "etcd-"}
+
+// controlPlaneBurst reports whether a burst is a control plane event: at least
+// two control plane components, and nothing outside the system namespaces.
+func controlPlaneBurst(rs []PodRestart) bool {
+	cp := map[string]bool{}
+	for _, r := range rs {
+		if r.Namespace != "kube-system" && !strings.HasPrefix(r.Namespace, "openshift-") {
+			return false
+		}
+		for _, p := range controlPlanePrefixes {
+			if strings.HasPrefix(r.Pod, p) {
+				cp[r.Pod] = true
+			}
+		}
+	}
+	return len(cp) >= 2
 }

@@ -21,6 +21,9 @@ type Cause struct {
 	Score    int      `json:"score"`
 	Evidence []string `json:"evidence"`
 	Hint     string   `json:"hint,omitempty"`
+	// Past marks something that happened and stopped: worth showing, but not a
+	// current problem.
+	Past bool `json:"past,omitempty"`
 }
 
 // Evidence is what Diagnose looks at.
