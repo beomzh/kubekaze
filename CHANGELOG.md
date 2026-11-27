@@ -6,6 +6,11 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
+
+### Added
+- Simplified Chinese and Japanese versions of the README, security policy and concept document, linked from every language and included (README) in release archives. The CHANGELOG and release guide stay in English and Korean; command output and `--help` stay in English.
+
 ## [0.2.1] - 2026-11-20 (not released, no tag; ships with the next minor release, 0.3.0)
 
 ### Changed

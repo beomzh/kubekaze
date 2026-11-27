@@ -1,6 +1,6 @@
 # 보안 정책
 
-[English](SECURITY.md) | 한국어
+[English](SECURITY.md) | 한국어 | [简体中文](SECURITY.zh-CN.md) | [日本語](SECURITY.ja.md)
 
 > 상태: 릴리즈 전입니다. 아래 모델은 첫 릴리즈에서 지킬 약속이며, *(계획)* 표시가 있는 항목은 아직 구현되지 않았습니다.
 

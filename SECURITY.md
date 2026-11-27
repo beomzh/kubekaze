@@ -1,6 +1,6 @@
 # Security Policy
 
-English | [한국어](SECURITY.ko.md)
+English | [한국어](SECURITY.ko.md) | [简体中文](SECURITY.zh-CN.md) | [日本語](SECURITY.ja.md)
 
 > Status: pre-release. The model below is what the first release commits to. Items marked *(planned)* are not implemented yet.
 
