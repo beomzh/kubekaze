@@ -6,6 +6,15 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
+
+### Changed
+- `events` / `why`: events that differ only in throwaway IDs (container and layer IDs, restart attempt number) are collapsed into one row that shows the latest message. Different containers and image digests stay separate.
+- `why node`: the restart burst says how many more *containers* are not listed.
+
+### Added
+- `why node` / `why nodes`: a failing container storage on the node (I/O error or failed overlay mount in a pod's status) is reported as a node problem.
+
 ## [0.2.3] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
 
 ### Changed

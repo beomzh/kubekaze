@@ -42,7 +42,9 @@ func (r PodRestart) String() string {
 // NodePod is an unhealthy pod running on the node.
 type NodePod struct {
 	Namespace, Name, Status string
-	Age                     time.Duration
+	// Message is the runtime's explanation of why a container is not running.
+	Message string
+	Age     time.Duration
 }
 
 func (p NodePod) String() string { return fmt.Sprintf("%s/%s: %s", p.Namespace, p.Name, p.Status) }
@@ -174,6 +176,10 @@ func DiagnoseNode(ev NodeEvidence) []Cause {
 		case "NodeNotReady":
 			add(Cause{Title: "The node changed to NotReady", Score: 65, Evidence: []string{evLine(r)}})
 		}
+	}
+
+	if c := nodeStorageCause(ev.BadPods); c != nil {
+		add(*c)
 	}
 
 	// A failing node-level network agent explains pods stuck in ContainerCreating.
@@ -311,7 +317,7 @@ func restartCauses(ev NodeEvidence) (burst, frequent *Cause) {
 		evidence := []string{fmt.Sprintf("last of them ended %s (%s ago)", last.Local().Format("2006-01-02 15:04:05 MST"), events.Age(ev.Now.Sub(last)))}
 		for i, r := range best {
 			if i == 5 {
-				evidence = append(evidence, fmt.Sprintf("(and %d more)", len(best)-5))
+				evidence = append(evidence, fmt.Sprintf("(and %d more containers)", len(best)-5))
 				break
 			}
 			evidence = append(evidence, fmt.Sprintf("%s: %s at %s", r, exitText(r), r.Last.Local().Format("15:04:05")))
@@ -400,4 +406,41 @@ func controlPlaneBurst(rs []PodRestart) bool {
 		}
 	}
 	return len(cp) >= 2
+}
+
+// nodeStorageCause reports a failing container storage seen through the pods of
+// the node: node events usually say nothing about it. One pod is enough for an
+// I/O error or a failed overlay mount; "read-only file system" or "no space
+// left" from a single pod can be that pod's own volume, so they need two.
+func nodeStorageCause(pods []NodePod) *Cause {
+	var hit []NodePod
+	certain := false
+	for _, p := range pods {
+		if !storageFailure(p.Message) {
+			continue
+		}
+		hit = append(hit, p)
+		low := strings.ToLower(p.Message)
+		if strings.Contains(low, "input/output error") || strings.Contains(low, "overlay") {
+			certain = true
+		}
+	}
+	if len(hit) == 0 || (!certain && len(hit) < 2) {
+		return nil
+	}
+	evidence := []string{}
+	for i, p := range hit {
+		if i == 5 {
+			evidence = append(evidence, fmt.Sprintf("(and %d more)", len(hit)-5))
+			break
+		}
+		evidence = append(evidence, p.String())
+	}
+	evidence = append(evidence, Shorten(hit[0].Message, maxEvidence))
+	return &Cause{
+		Title:    "The node's container storage is failing",
+		Score:    93,
+		Evidence: evidence,
+		Hint:     "The runtime cannot create container filesystems here. On the node check the disk and filesystem (`dmesg -T`, `journalctl -u crio` or `-u containerd`, `df -h`). Drain the node if the disk is failing.",
+	}
 }
