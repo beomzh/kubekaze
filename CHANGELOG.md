@@ -6,6 +6,11 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
+
+### Added
+- `kubekaze changes [--since 1h] [-n|-A]`: what changed just before it broke, oldest first: Deployment, StatefulSet and DaemonSet rollouts (image and env/resource/command/probe differences for Deployments, never environment values), created objects, edits of ConfigMaps, Secrets, Services, Ingresses and workload specs with the field manager that made them, Helm release revisions, autoscaling, and node reboot / NotReady / cordon events. `-o json` and `--since` completion. Deleted objects and previous values cannot be shown.
+
 ## [0.2.4] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
 
 ### Changed

@@ -31,7 +31,7 @@
 | `kubekaze ctx [name\|-]` | 切换 context；将 `oc` 按命名空间生成的 context 归组；登录过期时立即提醒 | 可用 |
 | `kubekaze ns [name\|-]` | 切换命名空间（OpenShift 上为项目）；选择器显示每个命名空间的 Pod 数、异常 Pod 数和近期告警，脚本可用 `--list` / `-o json` | 可用 |
 | `kubekaze update` | 更新二进制：在线、从镜像站（`--url`）或从已下载的压缩包（`--from`） | 可用 |
-| `kubekaze changes --since 1h` | 故障发生前刚刚改了什么 | 计划中 |
+| `kubekaze changes --since 1h` | 故障发生前刚刚改了什么：发布（含镜像和配置差异）、新建和修改过的对象及修改者、Helm 版本、扩缩容、节点事件；`--since`、`-A` | 可用 |
 | `--all-contexts` / `--context 'prod-*'` | 跨多个集群执行 | 计划中 |
 | AI 摘要（需手动开启，支持本地模型） | 用自然语言解释 | 计划中 |
 
@@ -47,6 +47,7 @@ kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
 kubekaze events -A --summary
+kubekaze changes --since 3h
 kubekaze top -A --sort memory --limit 20   # 需要 metrics-server
 kubekaze top ns -w --interval 2s
 kubekaze rm pods -A --status Evicted --dry-run

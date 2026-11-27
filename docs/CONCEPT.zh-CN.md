@@ -30,7 +30,7 @@
   - 重复事件合并并显示次数（`×37 over 12m`），避免刷屏；`--no-collapse` 显示原始事件。
   - `--summary` 每个命名空间一行（告警数、主要原因），快速看出哪个命名空间在“起火”；`-w` 实时跟踪新事件。
   - 注意：Kubernetes 默认只保留约一小时的事件；结果可能不完整时工具会说明。
-- `changes --since 1h`：“故障发生前刚刚改了什么？”（发布、仅以哈希表示的 ConfigMap/Secret 版本、扩缩容、节点事件）。
+- `changes --since 1h`：“故障发生前刚刚改了什么？”（发布、新建和修改过的对象及修改它的 field manager、Helm 版本、扩缩容、节点事件）。ConfigMap 和 Secret 的修改只报告为“数据已变更”。API 不保留已删除的对象和旧值，因此不显示。
 
 ### 2. 日常麻烦
 
@@ -72,7 +72,7 @@
 
 ## MVP 范围
 
-`status`、`ls`、`why`、`events`、`sh`、`logs`、`top`、`rm`、`ctx` 和 `ns`。其余功能（`changes`、并行执行、规则包、AI）在后续次版本中加入。
+`status`、`ls`、`why`、`events`、`sh`、`logs`、`top`、`rm`、`ctx`、`ns` 和 `changes`。其余功能（并行执行、规则包、AI）在后续次版本中加入。
 
 ## 支持平台
 

@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-27 (미배포, 태그 없음, 다음 마이너 릴리즈인 0.3.0에 포함 예정)
+
+### 추가
+- `kubekaze changes [--since 1h] [-n|-A]`: 깨지기 직전에 무엇이 바뀌었는지 오래된 순으로 보여 줍니다. Deployment·StatefulSet·DaemonSet 롤아웃(Deployment는 이미지와 env·리소스·명령·probe 차이, 환경 변수 값은 출력하지 않음), 생성된 객체, ConfigMap·Secret·Service·Ingress·워크로드 spec의 수정과 수정한 field manager, Helm 릴리스 revision, 오토스케일링, 노드의 재부팅·NotReady·cordon 이벤트. `-o json`과 `--since` 탭 완성을 지원합니다. 삭제된 객체와 이전 값은 보여 줄 수 없습니다.
+
 ## [0.2.4] - 2026-11-27 (미배포, 태그 없음, 다음 마이너 릴리즈인 0.3.0에 포함 예정)
 
 ### 변경

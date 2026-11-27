@@ -31,7 +31,7 @@ English | [한국어](README.ko.md) | [简体中文](README.zh-CN.md) | [日本�
 | `kubekaze ctx [name\|-]` | Switch context; groups `oc` per-namespace contexts; warns right away about an expired login | available |
 | `kubekaze ns [name\|-]` | Switch namespace (projects on OpenShift); the picker shows pods, unhealthy pods and recent warnings per namespace, `--list` / `-o json` for scripts | available |
 | `kubekaze update` | Update the binary: online, from a mirror (`--url`) or from a downloaded archive (`--from`) | available |
-| `kubekaze changes --since 1h` | What changed just before it broke | planned |
+| `kubekaze changes --since 1h` | What changed just before it broke: rollouts (with image and setting differences), created and edited objects with who edited them, Helm revisions, scaling and node events; `--since`, `-A` | available |
 | `--all-contexts` / `--context 'prod-*'` | Run across several clusters | planned |
 | AI summary (opt-in, local models supported) | Plain-language explanation | planned |
 
@@ -47,6 +47,7 @@ kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
 kubekaze events -A --summary
+kubekaze changes --since 3h
 kubekaze top -A --sort memory --limit 20   # needs metrics-server
 kubekaze top ns -w --interval 2s
 kubekaze rm pods -A --status Evicted --dry-run

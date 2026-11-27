@@ -160,6 +160,27 @@ Exit codes: 0 no problem found, 3 problem found, 1 error.`,
   kubekaze why api-7d9f -n payments --log-lines 40
   kubekaze why deploy/api -o json`},
 
+	"changes": {groupTriage, `Answer "what changed just before it broke?" for the current namespace (-n, -A),
+oldest first so the latest change is right above your prompt:
+
+  - Deployment, StatefulSet and DaemonSet rollouts, with image and setting
+    differences for Deployments (environment values are never printed)
+  - created objects, and edits of ConfigMaps, Secrets, Services, Ingresses and
+    workload specs, with the field manager that made them (kubectl-edit,
+    argocd, helm, an operator...)
+  - Helm release revisions, autoscaling, and node reboots / NotReady / cordon
+
+What it cannot see, because the API does not keep it: deleted objects, previous
+values of a ConfigMap or Secret, and events older than the cluster retains
+(about 1h by default). Secret values are never read out.`,
+		`  # the last hour in this namespace
+  kubekaze changes
+
+  # the whole cluster since yesterday
+  kubekaze changes -A --since 1d
+
+  # then explain what broke
+  kubekaze why deploy/api`},
 	"events": {groupTriage, `Show events the way you actually need them. "kubectl get events" is unsorted,
 one namespace at a time and full of repeats; kubekaze fixes that:
 

@@ -30,7 +30,7 @@ Design stance: **command in, answer out.** No resident UI. Output is readable by
   - Repeated events are collapsed with a count (`×37 over 12m`) instead of flooding the screen; `--no-collapse` shows raw events.
   - `--summary` prints one line per namespace (warning count, top reasons), a quick "which namespace is on fire" view; `-w` follows new events live.
   - Note: Kubernetes keeps events for about an hour by default; the tool says so when the result may be incomplete.
-- `changes --since 1h`: "what changed just before it broke?" (rollouts, ConfigMap/Secret revisions by hash only, scaling, node events).
+- `changes --since 1h`: "what changed just before it broke?" (rollouts, created and edited objects with the field manager that edited them, Helm revisions, scaling, node events). ConfigMap and Secret edits are reported as "data changed" only. Deleted objects and previous values are not kept by the API and are not shown.
 
 ### 2. Daily friction
 
@@ -72,7 +72,7 @@ An optional, **off by default** feature: the already-collected, already-redacted
 
 ## MVP scope
 
-`status`, `ls`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, and `ns`. Everything else (`changes`, fan-out, rule packs, AI) follows in later minor releases.
+`status`, `ls`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, `ns`, and `changes`. Everything else (fan-out, rule packs, AI) follows in later minor releases.
 
 ## Platforms
 

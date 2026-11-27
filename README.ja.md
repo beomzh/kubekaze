@@ -31,7 +31,7 @@
 | `kubekaze ctx [name\|-]` | context の切り替え。`oc` が namespace ごとに作る context をまとめ、ログイン期限切れをすぐに通知 | 利用可 |
 | `kubekaze ns [name\|-]` | namespace（OpenShift ではプロジェクト）の切り替え。選択画面に Pod 数、異常な Pod 数、直近の警告を表示。スクリプトには `--list` / `-o json` | 利用可 |
 | `kubekaze update` | バイナリの更新：オンライン、ミラー（`--url`）、ダウンロード済みアーカイブ（`--from`） | 利用可 |
-| `kubekaze changes --since 1h` | 壊れる直前に何が変わったか | 予定 |
+| `kubekaze changes --since 1h` | 壊れる直前に何が変わったか：ロールアウト（イメージと設定の差分）、作成・編集されたオブジェクトと編集者、Helm のリビジョン、スケーリング、ノードイベント。`--since`、`-A` | 利用可 |
 | `--all-contexts` / `--context 'prod-*'` | 複数クラスターに対して実行 | 予定 |
 | AI 要約（オプトイン、ローカルモデル対応） | 平易な言葉での説明 | 予定 |
 
@@ -47,6 +47,7 @@ kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
 kubekaze events -A --summary
+kubekaze changes --since 3h
 kubekaze top -A --sort memory --limit 20   # metrics-server が必要
 kubekaze top ns -w --interval 2s
 kubekaze rm pods -A --status Evicted --dry-run

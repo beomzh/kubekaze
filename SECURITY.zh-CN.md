@@ -23,7 +23,7 @@
 | 变更操作 | `sh`（pods/exec）、临时调试容器等操作需显式发起、在输出中标明，并在被识别为生产环境的 context 上要求确认。 |
 | 批量删除 | `rm` 总是先显示预览，确认后才删除；每个 Pod 按 UID 删除，同名重建的 Pod 不受影响；10 个及以上需要输入数量；类似生产环境的 context 需要输入 context 名称，脚本中则用 `--yes --confirm-context=<name>`；即使带 `--yes`，`--max`（默认 50）仍限制单次数量；逐个对象报告结果。 |
 | 写入 kubeconfig | `ctx` / `ns` 只修改 `current-context` 和 context 的 `namespace` 字段，使用 client-go 的标准写入器（与 `kubectl config use-context` 相同）。kubeconfig 的其他内容不动；记住的“上一个”值保存在仅用户可读的缓存文件中（权限 0600）。 |
-| Secret | 从不打印 Secret 的 `data`。来自 Secret 的环境变量值会被遮蔽。ConfigMap/Secret 的变更只以哈希报告。 |
+| Secret | 从不打印 Secret 的 `data`。来自 Secret 的环境变量值会被遮蔽。`changes` 只报告 ConfigMap 或 Secret 的数据在何时被哪个 field manager 修改：不输出值、键名或哈希。 |
 | 日志脱敏 | 默认遮蔽输出中常见的令牌和密码模式；必须显式传入 `--no-redact` 才会关闭。 |
 | 更新 | `kubekaze update` 仅在你要求时运行，从不在后台运行。要求压缩包与发布页 `checksums.txt` 中的 SHA-256 一致，替换前先试运行一次新二进制，用单次原子重命名完成替换（任何失败都保留旧二进制），只接受 https（仅 localhost 允许明文 http）。校验和只能证明下载内容完整，不能证明由谁构建：请自行验证 `checksums.txt` 的 cosign 签名（见下文），尤其是在把文件带入离线网络之前。 |
 | 遥测 | 无。除你指向的 Kubernetes API server 外不发起网络调用（仅当你开启可选的 AI 功能时才访问 LLM 端点）。 |
