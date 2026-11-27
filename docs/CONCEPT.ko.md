@@ -1,6 +1,6 @@
 # 컨셉
 
-> **kubekaze** (일본어 風, "바람"). [English](CONCEPT.md) | 한국어
+> **kubekaze** (일본어 風, "바람"). [English](CONCEPT.md) | 한국어 | [简体中文](CONCEPT.zh-CN.md) | [日本語](CONCEPT.ja.md)
 
 ## 한 줄 소개
 

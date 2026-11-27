@@ -3,11 +3,11 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
 
-[English](README.md) | 한국어
+[English](README.md) | 한국어 | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
 **무엇이 문제고 왜 그런지를 명령 한 번으로 알려주는, 터미널 중심의 쿠버네티스 동반 도구.**
 
-> **상태: 초기 개발 중(v0.1).** 아래 핵심 명령은 동작하며 kind 클러스터에서 확인했습니다(일괄 삭제는 아직 단위 테스트로만 검증). 0.x 동안에는 미완성인 부분과 변경이 있을 수 있습니다. [설치](#설치)를 참고하세요. 설계 배경은 [docs/CONCEPT.ko.md](docs/CONCEPT.ko.md)를 참고하세요.
+> **상태: 초기 개발 중(v0.2).** 아래 핵심 명령은 동작하며 kind 클러스터에서 확인했습니다(일괄 삭제는 아직 단위 테스트로만 검증). 0.x 동안에는 미완성인 부분과 변경이 있을 수 있습니다. [설치](#설치)를 참고하세요. 설계 배경은 [docs/CONCEPT.ko.md](docs/CONCEPT.ko.md)를 참고하세요.
 
 ## 왜 만드나
 

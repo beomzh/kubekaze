@@ -1,6 +1,6 @@
 # Concept
 
-> **kubekaze** (風, "wind" in Japanese). English | [한국어](CONCEPT.ko.md)
+> **kubekaze** (風, "wind" in Japanese). English | [한국어](CONCEPT.ko.md) | [简体中文](CONCEPT.zh-CN.md) | [日本語](CONCEPT.ja.md)
 
 ## One-line pitch
 

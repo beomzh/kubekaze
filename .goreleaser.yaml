@@ -37,6 +37,8 @@ archives:
       - NOTICE
       - README.md
       - README.ko.md
+      - README.zh-CN.md
+      - README.ja.md
 
 checksum:
   name_template: "checksums.txt"
