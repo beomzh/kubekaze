@@ -7,7 +7,7 @@ English | [한국어](README.ko.md) | [简体中文](README.zh-CN.md) | [日本�
 
 **A terminal-first Kubernetes companion that tells you what is wrong and why, in one command.**
 
-> **Status: early development (v0.2).** The core commands below work and were tried on a kind cluster (bulk delete is so far covered by unit tests only). Expect rough edges and changes between 0.x releases. See [Install](#install). Design background: [docs/CONCEPT.md](docs/CONCEPT.md).
+> **Status: early development (v0.3).** The core commands below work and were tried on a kind cluster (bulk delete is so far covered by unit tests only). Expect rough edges and changes between 0.x releases. See [Install](#install). Design background: [docs/CONCEPT.md](docs/CONCEPT.md).
 
 ## Why
 

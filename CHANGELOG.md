@@ -6,35 +6,21 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
-## [0.2.5] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
+## [0.3.0] - 2026-11-27
+
+Headline: `kubekaze changes`, what changed just before it broke. Includes everything from the unreleased 0.2.1 to 0.2.5.
 
 ### Added
 - `kubekaze changes [--since 1h] [-n|-A]`: what changed just before it broke, oldest first: Deployment, StatefulSet and DaemonSet rollouts (image and env/resource/command/probe differences for Deployments, never environment values), created objects, edits of ConfigMaps, Secrets, Services, Ingresses and workload specs with the field manager that made them, Helm release revisions, autoscaling, and node reboot / NotReady / cordon events. `-o json` and `--since` completion. Deleted objects and previous values cannot be shown.
-
-## [0.2.4] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
+- `why node` / `why nodes`: a failing container storage on the node (I/O error or failed overlay mount in a pod's status) is reported as a node problem.
+- Simplified Chinese and Japanese versions of the README, security policy and concept document, linked from every language and included (README) in release archives. The CHANGELOG and release guide stay in English and Korean; command output and `--help` stay in English.
 
 ### Changed
 - `events` / `why`: events that differ only in throwaway IDs (container and layer IDs, restart attempt number) are collapsed into one row that shows the latest message. Different containers and image digests stay separate.
 - `why node`: the restart burst says how many more *containers* are not listed.
-
-### Added
-- `why node` / `why nodes`: a failing container storage on the node (I/O error or failed overlay mount in a pod's status) is reported as a node problem.
-
-## [0.2.3] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
-
-### Changed
 - `why node`: a restart burst now shows when the last of it ended (date, time and zone) and each container's exit code, reason and time, so the matching node logs can be found without extra `kubectl` calls.
 - `why node`: a restart burst or reboot with nothing newer for more than 24 hours is shown under "Past events" and no longer counts as a current problem (the node stays healthy and the exit code is not 3). `why nodes` mentions past events of healthy nodes in one line each; `-o json` marks them with `"past": true`.
 - `why node`: when control plane components restart together, the hint points at the API server and etcd instead of saying the pods have nothing to do with each other.
-
-## [0.2.2] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
-
-### Added
-- Simplified Chinese and Japanese versions of the README, security policy and concept document, linked from every language and included (README) in release archives. The CHANGELOG and release guide stay in English and Korean; command output and `--help` stay in English.
-
-## [0.2.1] - 2026-11-20 (not released, no tag; ships with the next minor release, 0.3.0)
-
-### Changed
 - `completion install --alias kk` and the help texts now say that `--alias` only wires up tab completion for a name you already have and does not create the command `kk`, and show how to define it (`alias kk=kubekaze` or a symlink). The root help line "also for an alias" read as if the alias were created.
 
 ## [0.2.0] - 2026-11-20
