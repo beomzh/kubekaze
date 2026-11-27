@@ -3,6 +3,7 @@
 package events
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -117,14 +118,43 @@ func containsFold(list []string, s string) bool {
 	return false
 }
 
-// Collapse folds events that differ only by timing into one row, summing
-// counts and widening the time range.
+// Runtime messages carry identifiers that change on every retry. They are
+// ignored when deciding whether two events say the same thing. Only places
+// where a runtime puts such IDs are matched: names in other messages (for
+// example a ReplicaSet hash) must keep events apart.
+var (
+	// full container and sandbox IDs; image digests are kept because they say
+	// which image it was
+	longID = regexp.MustCompile(`(sha256:)?\b[0-9a-f]{32,}\b`)
+	// overlay layer directory and short link
+	overlayDir  = regexp.MustCompile(`/overlay/[0-9a-f]{8,}`)
+	overlayLink = regexp.MustCompile(`/l/[A-Z0-9]{20,}`)
+	// CRI container name, attempt number and short ID:
+	// k8s_app_pod_ns_<uid>_2(f35d7dc4)
+	criName = regexp.MustCompile(`(k8s_[A-Za-z0-9._-]+?_[0-9a-f-]{36})_\d+(\([0-9a-f]+\))?`)
+)
+
+func sameness(msg string) string {
+	msg = criName.ReplaceAllString(msg, "${1}_N")
+	msg = overlayDir.ReplaceAllString(msg, "/overlay/ID")
+	msg = overlayLink.ReplaceAllString(msg, "/l/ID")
+	return longID.ReplaceAllStringFunc(msg, func(m string) string {
+		if strings.HasPrefix(m, "sha256:") {
+			return m
+		}
+		return "ID"
+	})
+}
+
+// Collapse folds events that differ only by timing or by throwaway IDs into one
+// row, summing counts and widening the time range. The row keeps the message of
+// the latest occurrence.
 func Collapse(rows []Row) []Row {
 	type key struct{ ns, typ, reason, kind, name, msg string }
 	idx := map[key]int{}
 	out := make([]Row, 0, len(rows))
 	for _, r := range rows {
-		k := key{r.Namespace, r.Type, r.Reason, r.Kind, r.Name, r.Message}
+		k := key{r.Namespace, r.Type, r.Reason, r.Kind, r.Name, sameness(r.Message)}
 		i, ok := idx[k]
 		if !ok {
 			idx[k] = len(out)
@@ -139,6 +169,7 @@ func Collapse(rows []Row) []Row {
 		}
 		if r.Last.After(m.Last) {
 			m.Last = r.Last
+			m.Message = r.Message
 		}
 	}
 	return out

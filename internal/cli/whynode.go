@@ -98,7 +98,7 @@ func nodeReportFor(n *corev1.Node, evs []events.Row, pods []corev1.Pod, now time
 		age := now.Sub(p.CreationTimestamp.Time)
 		starting := (st == "Pending" || st == "ContainerCreating" || st == "PodInitializing") && age < 2*time.Minute
 		if !podstatus.Healthy(p) && !starting {
-			bad = append(bad, why.NodePod{Namespace: p.Namespace, Name: p.Name, Status: st, Age: age})
+			bad = append(bad, why.NodePod{Namespace: p.Namespace, Name: p.Name, Status: st, Age: age, Message: failureMessage(p)})
 		}
 	}
 	sort.Slice(bad, func(i, j int) bool {
@@ -126,6 +126,34 @@ func nodeReportFor(n *corev1.Node, evs []events.Row, pods []corev1.Pod, now time
 	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: bad, Restarts: restarts, Now: now})
 	r.Healthy = len(currentCauses(r.Causes)) == 0
 	return r
+}
+
+// failureMessage returns why a container of the pod is not running, preferring
+// a message that points at the node's storage.
+func failureMessage(p *corev1.Pod) string {
+	first := ""
+	all := append(append([]corev1.ContainerStatus{}, p.Status.InitContainerStatuses...), p.Status.ContainerStatuses...)
+	for _, cs := range all {
+		for _, st := range []corev1.ContainerState{cs.State, cs.LastTerminationState} {
+			msg := ""
+			if st.Waiting != nil {
+				msg = st.Waiting.Message
+			} else if st.Terminated != nil && st.Terminated.ExitCode != 0 && st.Terminated.Reason != "Error" {
+				// "Error" carries the application's own output, not the runtime's
+				msg = st.Terminated.Message
+			}
+			if msg == "" {
+				continue
+			}
+			if strings.Contains(strings.ToLower(msg), "input/output error") {
+				return msg
+			}
+			if first == "" {
+				first = msg
+			}
+		}
+	}
+	return first
 }
 
 // loadNodeEvents returns node events grouped by node name. Node events usually

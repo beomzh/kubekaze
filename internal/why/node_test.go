@@ -239,3 +239,18 @@ func TestApplicationPodsNamedLikeControlPlaneAreNotControlPlane(t *testing.T) {
 		t.Errorf("hint = %q", c.Hint)
 	}
 }
+
+func TestNodeStorageFailureFromPodMessages(t *testing.T) {
+	bad := []NodePod{{Namespace: "ovn", Name: "ovnkube-node-x", Status: "CreateContainerError", Message: "Error: " + overlayIOError}}
+	c := top(t, DiagnoseNode(NodeEvidence{Node: node(healthyReady()), BadPods: bad, Now: now}))
+	if !strings.Contains(c.Title, "container storage") {
+		t.Fatalf("got %+v", c)
+	}
+}
+
+func TestOneReadOnlyVolumeIsNotANodeStorageFailure(t *testing.T) {
+	bad := []NodePod{{Namespace: "a", Name: "p", Status: "CreateContainerError", Message: "mkdir /data/x: read-only file system"}}
+	if c := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), BadPods: bad, Now: now}); c != nil {
+		t.Errorf("got %+v", c)
+	}
+}
