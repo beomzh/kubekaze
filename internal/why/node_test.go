@@ -205,3 +205,37 @@ func TestRebootStaysVisibleForAWeekButRanksLower(t *testing.T) {
 		t.Errorf("9d old should be ignored: %+v", c)
 	}
 }
+
+func cpBurst(ago time.Duration, ns string) []PodRestart {
+	var rs []PodRestart
+	for i, p := range []string{"kube-controller-manager-n1", "kube-scheduler-n1", "cloud-controller-manager-n1", "snapshot-controller-x"} {
+		r := restartAt(ns, p, 11, ago+time.Duration(i)*time.Minute)
+		r.ExitCode, r.Reason = 1, "Error"
+		rs = append(rs, r)
+	}
+	return rs
+}
+
+func TestOldBurstIsPastAndPullsInNothingElse(t *testing.T) {
+	causes := DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: cpBurst(6*24*time.Hour, "kube-system"),
+		BadPods: []NodePod{{Namespace: "a", Name: "p", Status: "Error"}}, Now: now})
+	if len(causes) != 1 || !causes[0].Past {
+		t.Fatalf("want a single past cause, got %+v", causes)
+	}
+}
+
+func TestRecentBurstShowsTimeExitReasonAndControlPlaneHint(t *testing.T) {
+	c := top(t, DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: cpBurst(2*time.Hour, "kube-system"), Now: now}))
+	all := strings.Join(c.Evidence, "\n")
+	want := now.Add(-2 * time.Hour).Local().Format("2006-01-02 15:04:05")
+	if c.Past || !strings.Contains(all, want) || !strings.Contains(all, "exit 1 Error") || !strings.Contains(c.Hint, "etcd") {
+		t.Errorf("%+v", c)
+	}
+}
+
+func TestApplicationPodsNamedLikeControlPlaneAreNotControlPlane(t *testing.T) {
+	c := top(t, DiagnoseNode(NodeEvidence{Node: node(healthyReady()), Restarts: cpBurst(time.Hour, "shop"), Now: now}))
+	if !strings.Contains(c.Hint, "nothing to do with each other") {
+		t.Errorf("hint = %q", c.Hint)
+	}
+}

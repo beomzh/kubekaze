@@ -118,12 +118,13 @@ func nodeReportFor(n *corev1.Node, evs []events.Row, pods []corev1.Pod, now time
 				restarts = append(restarts, why.PodRestart{
 					Namespace: p.Namespace, Pod: p.Name, Container: cs.Name,
 					Count: cs.RestartCount, Last: cs.LastTerminationState.Terminated.FinishedAt.Time,
+					ExitCode: cs.LastTerminationState.Terminated.ExitCode, Reason: cs.LastTerminationState.Terminated.Reason,
 				})
 			}
 		}
 	}
 	r.Causes = why.DiagnoseNode(why.NodeEvidence{Node: n, Events: r.Events, BadPods: bad, Restarts: restarts, Now: now})
-	r.Healthy = len(r.Causes) == 0
+	r.Healthy = len(currentCauses(r.Causes)) == 0
 	return r
 }
 
@@ -179,6 +180,7 @@ func (a *app) emitNodeReports(reports []*nodeReport, single bool) error {
 	}
 	if bad == 0 {
 		fmt.Fprintf(a.out, "%s All %d node(s) look healthy: %s\n", a.pal.Green("OK"), len(reports), term.SafeText(strings.Join(okNames, ", ")))
+		a.printPastSummary(reports)
 		return nil
 	}
 	fmt.Fprintf(a.out, "%d of %d node(s) have problems.", bad, len(reports))
@@ -186,6 +188,7 @@ func (a *app) emitNodeReports(reports []*nodeReport, single bool) error {
 		fmt.Fprintf(a.out, " Healthy: %s", term.SafeText(strings.Join(okNames, ", ")))
 	}
 	fmt.Fprintln(a.out)
+	a.printPastSummary(reports)
 	return nil
 }
 
@@ -297,16 +300,56 @@ func (a *app) printNode(r *nodeReport) {
 	if r.Healthy {
 		fmt.Fprintf(a.out, "%s No problem found for this node.\n", a.pal.Green("OK"))
 		fmt.Fprintln(a.out, a.pal.Dim("Checked through the Kubernetes API only. Crashes inside the node (core dumps, kernel messages) are not visible from here: on the node run `coredumpctl list` and `dmesg -T`."))
-		return
+	} else {
+		fmt.Fprintln(a.out, a.pal.Bold("Suspected causes (most likely first)"))
+		a.printCauses(currentCauses(r.Causes))
 	}
-	fmt.Fprintln(a.out, a.pal.Bold("Suspected causes (most likely first)"))
-	for i, c := range r.Causes {
+	if past := pastCauses(r.Causes); len(past) > 0 {
+		fmt.Fprintln(a.out)
+		fmt.Fprintln(a.out, a.pal.Bold("Past events (nothing repeated since; not counted as a current problem)"))
+		a.printCauses(past)
+	}
+}
+
+func (a *app) printCauses(causes []why.Cause) {
+	for i, c := range causes {
 		fmt.Fprintf(a.out, "%d. %s\n", i+1, a.pal.Yellow(term.SafeText(c.Title)))
 		for _, e := range c.Evidence {
 			fmt.Fprintf(a.out, "     - %s\n", term.SafeText(e))
 		}
 		if c.Hint != "" {
 			fmt.Fprintf(a.out, "     %s %s\n", a.pal.Cyan("->"), term.SafeText(c.Hint))
+		}
+	}
+}
+
+func currentCauses(cs []why.Cause) []why.Cause { return causesByPast(cs, false) }
+
+func pastCauses(cs []why.Cause) []why.Cause { return causesByPast(cs, true) }
+
+func causesByPast(cs []why.Cause, past bool) []why.Cause {
+	var out []why.Cause
+	for _, c := range cs {
+		if c.Past == past {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// printPastSummary mentions past events of nodes that are healthy now, so that
+// "all healthy" does not hide them.
+func (a *app) printPastSummary(reports []*nodeReport) {
+	for _, r := range reports {
+		if !r.Healthy {
+			continue // shown in full already
+		}
+		for _, c := range pastCauses(r.Causes) {
+			detail := ""
+			if len(c.Evidence) > 0 {
+				detail = " (" + c.Evidence[0] + ")"
+			}
+			fmt.Fprintln(a.out, a.pal.Dim(term.SafeText(fmt.Sprintf("Past event on %s: %s%s. Details: kubekaze why node/%s", r.Node, c.Title, detail, r.Node))))
 		}
 	}
 }

@@ -6,6 +6,13 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
+
+### Changed
+- `why node`: a restart burst now shows when the last of it ended (date, time and zone) and each container's exit code, reason and time, so the matching node logs can be found without extra `kubectl` calls.
+- `why node`: a restart burst or reboot with nothing newer for more than 24 hours is shown under "Past events" and no longer counts as a current problem (the node stays healthy and the exit code is not 3). `why nodes` mentions past events of healthy nodes in one line each; `-o json` marks them with `"past": true`.
+- `why node`: when control plane components restart together, the hint points at the API server and etcd instead of saying the pods have nothing to do with each other.
+
 ## [0.2.2] - 2026-11-27 (not released, no tag; ships with the next minor release, 0.3.0)
 
 ### Added
