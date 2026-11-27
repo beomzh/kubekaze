@@ -550,6 +550,7 @@ func (a *app) registerCompletions(root *cobra.Command) {
 	flag("rm", "status", statuses)
 	flag("events", "sort", fixed(events.SortKeys...))
 	flag("events", "type", fixed("Warning", "Normal"))
+	flag("changes", "since", fixed("30m", "1h", "3h", "1d", "7d"))
 	flag("events", "since", fixed("10m", "30m", "1h", "2h", "1d"))
 	flag("rm", "older-than", fixed("10m", "30m", "1h", "2h", "1d"))
 	flag("top", "sort", fixed("cpu", "memory"))

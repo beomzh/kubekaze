@@ -31,7 +31,7 @@
 | `kubekaze ctx [name\|-]` | 컨텍스트 전환. `oc`가 만드는 네임스페이스별 컨텍스트를 묶어 보여주고, 만료된 로그인을 바로 경고 | 사용 가능 |
 | `kubekaze ns [name\|-]` | 네임스페이스 전환(OpenShift는 프로젝트). 선택기에 네임스페이스별 파드·비정상 파드·최근 경고 수를 표시하며, 스크립트용으로 `--list` / `-o json` | 사용 가능 |
 | `kubekaze update` | 바이너리 업데이트: 온라인, 미러(`--url`), 받아 둔 아카이브(`--from`) | 사용 가능 |
-| `kubekaze changes --since 1h` | 깨지기 직전에 무엇이 바뀌었나 | 계획 |
+| `kubekaze changes --since 1h` | 깨지기 직전에 무엇이 바뀌었나: 롤아웃(이미지·설정 차이), 생성·수정된 객체와 수정한 주체, Helm revision, 스케일링, 노드 이벤트. `--since`, `-A` | 사용 가능 |
 | `--all-contexts` / `--context 'prod-*'` | 여러 클러스터에 동시에 실행 | 계획 |
 | AI 요약(선택, 로컬 모델 지원) | 쉬운 말로 설명 | 계획 |
 
@@ -47,6 +47,7 @@ kubekaze sh deploy/api -c sidecar
 kubekaze sh api-7d9f -- ls -l /app
 kubekaze logs deploy/api -f --since 10m
 kubekaze events -A --summary
+kubekaze changes --since 3h
 kubekaze top -A --sort memory --limit 20   # metrics-server 필요
 kubekaze top ns -w --interval 2s
 kubekaze rm pods -A --status Evicted --dry-run

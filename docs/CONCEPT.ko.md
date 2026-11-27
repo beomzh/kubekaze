@@ -30,7 +30,7 @@
   - 반복되는 이벤트는 화면을 채우지 않도록 횟수로 합쳐 보여주며(`×37 over 12m`), `--no-collapse`로 원본을 봅니다.
   - `--summary`는 네임스페이스별 한 줄 요약(Warning 수, 상위 사유)으로 "어느 네임스페이스가 문제인지"를 빠르게 보여주고, `-w`는 새 이벤트를 실시간으로 따라갑니다.
   - 참고: 쿠버네티스는 이벤트를 기본 약 1시간만 보관하므로, 결과가 불완전할 수 있으면 그 사실을 알려줍니다.
-- `changes --since 1h`: "깨지기 직전에 뭐가 바뀌었지?" (롤아웃, ConfigMap/Secret 변경은 해시만, 스케일링, 노드 이벤트).
+- `changes --since 1h`: "깨지기 직전에 뭐가 바뀌었지?" (롤아웃, 생성·수정된 객체와 수정한 field manager, Helm revision, 스케일링, 노드 이벤트). ConfigMap·Secret 수정은 "데이터 변경"으로만 알립니다. 삭제된 객체와 이전 값은 API가 보관하지 않아 보여 주지 않습니다.
 
 ### 2. 일상의 번거로움 제거
 
@@ -72,7 +72,7 @@
 
 ## MVP 범위
 
-`status`, `ls`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, `ns`. 나머지(`changes`, fan-out, 규칙 팩, AI)는 이후 마이너 릴리즈에서 추가합니다.
+`status`, `ls`, `why`, `events`, `sh`, `logs`, `top`, `rm`, `ctx`, `ns`, `changes`. 나머지(fan-out, 규칙 팩, AI)는 이후 마이너 릴리즈에서 추가합니다.
 
 ## 지원 플랫폼
 
